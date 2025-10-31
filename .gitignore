@@ -1,0 +1,10 @@
+# Node.js (모든 node_modules 폴더 무시)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# 환경 변수 파일 (DB 비밀번호 등)
+.env
+
+# macOS
+.DS_Store

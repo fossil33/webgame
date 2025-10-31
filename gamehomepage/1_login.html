@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>로그인</title>
+    <link href="https://fonts.googleapis.com/css?family=Poppins:600&display=swap" rel="stylesheet">
+    <script src="https://kit.fontawesome.com/a81368914c.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="1_login.css">
+</head>
+<body>
+    <img class="wave" src="https://raw.githubusercontent.com/sefyudem/Responsive-Login-Form/master/img/wave.png">
+    <div class="container">
+        <div class="img">
+            <img src="https://raw.githubusercontent.com/sefyudem/Responsive-Login-Form/master/img/bg.svg">
+        </div>
+        <div class="login-content">
+            <form>
+                <img src="https://raw.githubusercontent.com/sefyudem/Responsive-Login-Form/master/img/avatar.svg">
+                <h2 class="title">Welcome</h2>
+                <input type="button" class="btn" value="Login with Kakao" onclick="loginWithKakao()">
+            </form>
+        </div>
+    </div>
+
+    <script src="https://developers.kakao.com/sdk/js/kakao.min.js"></script>
+    <script src="1_login.js"></script>
+    <script>
+        // SDK 초기화
+        Kakao.init('8382196ca251c7706e3b7e1df97883e7'); // 올바른 JavaScript 키로 변경
+        console.log(Kakao.isInitialized()); // SDK 초기화 확인
+
+        function loginWithKakao() {
+            Kakao.Auth.login({
+                scope: 'profile_nickname,account_email', // 추가 동의 항목
+                success: function(authObj) {
+                    console.log(authObj);
+                    // 로그인 성공 시 사용자 정보 가져오기
+                    Kakao.API.request({
+                        url: '/v2/user/me', // 카카오 사용자 정보 조회 API 카카오 측에 요청
+                        success: function(res) {
+                            console.log(res);
+                            const kakaoNickname = res.properties.nickname;
+                            localStorage.setItem('kakaoNickname', kakaoNickname); // 카카오 닉네임 저장
+                            localStorage.setItem('userId', res.id); // 사용자의 고유 숫자 ID 저장
+                            
+                            // 서버로 사용자 정보 전송
+                            fetch('/auth/kakao', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    id: res.id,
+                                    nickname: res.properties.nickname,
+                                    email: res.kakao_account.email,
+                                    profile_image: res.properties.profile_image
+                                })
+                            })
+                            // [수정됨] 서버 응답 처리 로직 개선
+                            .then(response => {
+                                if (!response.ok) {
+                                    // 서버에서 보낸 에러 메시지를 받아서 Error 객체를 생성
+                                    return response.text().then(text => { throw new Error(text || '서버 오류') });
+                                }
+                                return response.text();
+                            })
+                            .then(data => {
+                                console.log('✅ 서버 응답:', data);
+                                window.location.href = "4_main.html"; // 로그인 후 이동
+                            })
+                            .catch(err => {
+                                console.error('❌ 서버 저장 실패:', err);
+                                // 서버에서 받은 에러 메시지를 사용자에게 알림
+                                alert(err.message || '로그인 중 오류가 발생했습니다.');
+                            });
+                        },
+                        fail: function(error) {
+                            console.log(error);
+                            alert('사용자 정보 요청 실패');
+                        }
+                    });
+                },
+                fail: function(err) {
+                    console.log(err);
+                    alert('카카오 로그인 실패');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

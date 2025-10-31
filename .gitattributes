@@ -1,0 +1,2 @@
+gamehomepage/TemplateData/Build/*.data filter=lfs diff=lfs merge=lfs -text
+gamehomepage/TemplateData/Build/*.wasm filter=lfs diff=lfs merge=lfs -text

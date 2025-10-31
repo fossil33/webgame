@@ -1,0 +1,103 @@
+    <nav class="site-nav site-nav--floating theme-bloodvine" role="navigation">
+        <div class="container">
+            <div class="menu-bg-wrap">
+                <div class="site-navigation">
+                    <a href="4_main.html" class="logo m-0"> <img src="css/LOGO.png" alt="WebGame Logo">
+                    </a>
+
+                    <ul class="js-clone-nav d-none d-lg-inline-block text-start site-menu main-menu"> <li><a href="ranking.html">랭킹 순위</a></li>
+                        <li><a href="event.html">이벤트</a></li>
+                        <li class="has-children">
+                            <a href="#" class="no-link">게시판</a>
+                            <ul class="dropdown">
+                                <li><a href="popular_chart.html">자유 게시판</a></li>
+                                <li><a href="target_chart.html">공략 게시판</a></li>
+                            </ul>
+                        </li>
+                        <li><a href="chatbot.html">챗봇</a></li>
+                    </ul>
+
+                     <div class="menu-right-actions">
+          <ul class="js-clone-nav d-none d-lg-inline-block site-menu user-menu">
+            <li id="login-menu"><a href="1_login.html">로그인</a></li>
+            <li id="user-name-menu-container" class="has-children" style="display:none;">
+              <a href="#" id="user-name" class="menu-link">사용자 이름</a>
+              <ul class="dropdown" id="logout-dropdown">
+                <li><a href="#" id="logout">로그아웃</a></li>
+              </ul>
+            </li>
+          </ul>
+          <div class="gs-wrap">
+  <a href="game_start.html" target="_blank"
+     class="game-start-btn contact-btn" aria-label="게임 시작">
+    <span class="gs-text">게임시작</span>
+  </a>
+</div>
+                    
+                    <a href="#" class="burger light ms-auto mt-1 site-menu-toggle js-menu-toggle d-inline-block d-lg-none" data-toggle="collapse" data-target="#main-navbar"> <span></span>
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="nav-decor nav-decor--drip" aria-hidden="true"></div>
+  <div class="nav-decor nav-decor--vine" aria-hidden="true"></div>
+  <script>
+(function(){
+  const HOVER_DELAY = 120; // 마우스가 살짝 벗어나도 0.12초는 유지
+
+  function wireDropdown(li){
+    let hideT;
+    const trigger = li.querySelector(':scope > a'); // 부모 항목의 <a>
+    const dropdown = li.querySelector(':scope > .dropdown');
+
+    if(!trigger || !dropdown) return;
+
+    // 마우스 진입/이탈
+    li.addEventListener('mouseenter', () => {
+      clearTimeout(hideT);
+      li.classList.add('open');
+    });
+    li.addEventListener('mouseleave', () => {
+      hideT = setTimeout(() => li.classList.remove('open'), HOVER_DELAY);
+    });
+
+    // 키보드 포커스 접근성
+    li.querySelectorAll('a').forEach(a => {
+      a.addEventListener('focus', () => { li.classList.add('open'); });
+      a.addEventListener('blur',  () => {
+        setTimeout(() => {
+          if(!li.contains(document.activeElement)) li.classList.remove('open');
+        }, 150);
+      });
+    });
+
+    // 터치/모바일: 첫 클릭은 열기, 두 번째 클릭부터 이동
+    trigger.addEventListener('click', (e) => {
+      const hasSub = !!dropdown;
+      if(hasSub && !li.classList.contains('open')){
+        e.preventDefault();  // 첫 클릭은 네비게이션 대신 열기
+        li.classList.add('open');
+      }
+    });
+  }
+
+  function init(){
+    // nav가 비동기로 주입되는 경우를 대비
+    const nav = document.querySelector('.site-nav, .site-nav--floating');
+    if(!nav){ return setTimeout(init, 100); }
+
+    nav.querySelectorAll('.has-children').forEach(wireDropdown);
+
+    // 바깥 클릭 시 닫기
+    document.addEventListener('click', (e) => {
+      if(e.target.closest('.has-children')) return;
+      nav.querySelectorAll('.has-children.open').forEach(li => li.classList.remove('open'));
+    });
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+
+    </nav>

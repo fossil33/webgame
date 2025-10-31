@@ -1,0 +1,436 @@
+/* =========================
+   GAME HUD THEME (Design-only)
+   ========================= */
+:root{
+  --bg-0:#0b0f17; --bg-1:#0f1624;
+  --panel:rgba(18,24,38,.72); --panel-strong:rgba(18,24,38,.92);
+  --stroke:rgba(120,200,255,.22); --text:#e6f1ff; --muted:#9fb4cc;
+  --accent:#4fd1ff; --accent2:#9d6bff; --success:#4fe3a3;
+}
+
+.chatbot-page{ position:relative; color:var(--text); }
+.chatbot-page .heading-xl{ font-weight:700; margin:6px 0 0; }
+.chatbot-page .heading-sm{ margin:0 0 4px; }
+.chatbot-page .accent{ color:var(--accent); }
+.chatbot-page .text-muted-2{ color:var(--muted); }
+
+/* Background ornaments */
+.chatbot-page .game-bg .grid{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px,transparent 1px);
+  background-size:40px 40px,40px 40px;
+}
+.chatbot-page .game-bg .noise{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.035'/></svg>");
+  mix-blend-mode:soft-light;
+}
+.chatbot-page .game-bg .scanlines{
+  position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.13) 2px 4px);
+}
+
+/* Layout */
+.chatbot-page .chat-layout{
+  position:relative; z-index:1;
+  display:grid; gap:18px;
+  grid-template-columns:minmax(0,1fr) 360px;
+  padding-bottom:40px;
+}
+@media (max-width: 991px){
+  .chatbot-page .chat-layout{ grid-template-columns:1fr; }
+}
+
+/* Panels */
+.chatbot-page .panel{
+  border:1px solid var(--stroke);
+  background:var(--panel);
+  border-radius:16px; overflow:hidden;
+  backdrop-filter:blur(10px);
+  box-shadow:0 0 18px rgba(0,180,255,.2), inset 0 0 12px rgba(0,180,255,.06);
+}
+.chatbot-page .panel-header{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; padding:14px 16px;
+  background:linear-gradient(180deg, rgba(79,209,255,.08), transparent);
+  border-bottom:1px solid var(--stroke);
+  font-weight:600;
+}
+.chatbot-page .panel-header.compact{ padding:10px 14px; font-weight:500; }
+.chatbot-page .panel-body{ padding:16px; }
+.chatbot-page .dot{ width:10px; height:10px; border-radius:50%; display:inline-block; background:#999; }
+.chatbot-page .dot.online{ background:var(--success); box-shadow:0 0 8px var(--success); }
+
+/* Chat area */
+.chatbot-page .chat-panel{ display:flex; flex-direction:column; height: 540px; }
+.chatbot-page .chat-panel .panel-body{ flex:1; position:relative; overflow:hidden; }
+.chatbot-page .messages{
+  height:100%; overflow-y:auto; padding-right:8px; scrollbar-width:thin;
+}
+.chatbot-page .messages::-webkit-scrollbar{ width:8px; }
+.chatbot-page .messages::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.15); border-radius:8px; }
+
+/* 메시지 버블 (JS 수정 없이 #messages > div 전체에 적용) */
+#messages > div{
+  max-width:85%;
+  margin:8px 0;
+  padding:10px 12px;
+  border-radius:12px;
+  line-height:1.5;
+  word-break:break-word;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08);
+  box-shadow:inset 0 0 0 9999px rgba(0,0,0,.04);
+}
+#messages > div strong{ color:var(--muted); margin-right:6px; }
+/* [★추가★] 챗봇 메시지 내의 링크 색상 */
+#messages > div a {
+  color: var(--accent) !important; /* 테마의 밝은 파란색으로 변경 */
+  text-decoration: underline !important; /* 링크임을 명확히 함 */
+  font-weight: 600; /* 약간 굵게 */
+}
+#messages > div a:hover {
+  color: #ffffff !important; /* 호버 시 흰색으로 */
+}
+/* 타이핑 인디케이터 (디자인 전용) */
+.chatbot-page .typing{ position:absolute; left:16px; bottom:14px; display:flex; gap:6px; }
+.chatbot-page .typing.hidden{ display:none; }
+.chatbot-page .typing span{
+  width:8px; height:8px; border-radius:50%; background:var(--muted); opacity:.5; animation:bounce 1.2s infinite;
+}
+.chatbot-page .typing span:nth-child(2){ animation-delay:.15s; }
+.chatbot-page .typing span:nth-child(3){ animation-delay:.3s; }
+@keyframes bounce{
+  0%,80%,100%{ transform:translateY(0); opacity:.4; }
+  40%{ transform:translateY(-6px); opacity:1; }
+}
+
+/* Input row */
+.chatbot-page .input-row{
+  padding:12px; border-top:1px solid var(--stroke); background:var(--panel-strong);
+}
+.chatbot-page .input-container{
+  display:grid; grid-template-columns:1fr 120px; gap:10px;
+  border:1px solid var(--stroke); border-radius:12px; padding:6px;
+  background:rgba(255,255,255,.02);
+}
+#user-input{
+  width:100%; border:none; outline:none; color:var(--text);
+  background:transparent; padding:10px 12px;
+}
+#user-input::placeholder{ color:var(--muted); }
+#send-btn{
+  border:1px solid rgba(79,209,255,.5);
+  background:linear-gradient(180deg, rgba(79,209,255,.25), rgba(79,209,255,.08));
+  color:#eaffff; border-radius:10px; font-weight:600; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:6px;
+}
+
+/* Quick questions (chatbot.js가 동적으로 만들던 클래스) */
+.quick-questions-container{
+  display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;
+}
+.quick-question-btn{
+  border:1px solid var(--stroke); background:rgba(255,255,255,.02);
+  color:var(--text); padding:8px 12px; border-radius:999px; cursor:pointer; font-size:14px;
+}
+.quick-question-btn:hover{ box-shadow:0 0 0 2px rgba(79,209,255,.25) inset; }
+
+/* Right side */
+.chatbot-page .side {
+  /* display: grid; */ /* 이 줄을 주석 처리하거나 삭제 */
+  display: flex;        /* 이 줄 추가 */
+  flex-direction: column; /* 이 줄 추가 */
+  gap: 18px;
+  height: 540px;      /* [★핵심★] 챗봇 패널과 동일한 높이 540px 지정 */
+}
+.chatbot-page .list p{ margin:0 0 6px; color:var(--muted); }
+.chatbot-page .feature-h{ display:flex; gap:10px; align-items:flex-start; padding:8px 0; }
+.chatbot-page .wrap-icon{ width:28px; height:28px; display:flex; align-items:center; justify-content:center; border:1px solid var(--stroke); border-radius:8px; }
+
+/* 페이지 배경 톤 보정 */
+.section.section-4.bg-light{
+  background: radial-gradient(1200px 600px at 80% -20%, rgba(79,209,255,.12), transparent),
+              radial-gradient(800px 500px at -20% 30%, rgba(157,107,255,.12), transparent),
+              linear-gradient(180deg, var(--bg-0), var(--bg-1));
+}
+
+/* === [Fix] 상단바 아래/푸터 줄무늬 제거 & 배경 범위 제한 (이 페이지 한정) === */
+
+/* 배경 오버레이를 챗봇 영역 내부로만 제한: header/footer에 비치지 않게 */
+.chatbot-page { position: relative; }
+.chatbot-page .game-bg { position: absolute; inset: 0; z-index: 0; }
+.chatbot-page .game-bg .grid,
+.chatbot-page .game-bg .noise,
+.chatbot-page .game-bg .scanlines { position: absolute !important; inset: 0; }
+
+/* 상단바 바로 아래 보이는 하얀 '줄무늬'는 스캔라인 효과였음 → 숨김 */
+.chatbot-page .game-bg .scanlines { display: none !important; }
+
+/* =================================== */
+/* ===== (수정) 챗봇 푸터 라이트 테마 ===== */
+/* =================================== */
+
+/* =================================== */
+/* === 챗봇 페이지 전용 테마 (푸터/배경) === */
+/* =================================== */
+
+/* --- 1. 푸터 라이트 테마 (Event와 동일하게) --- */
+body.chat-page .site-footer {
+  background: #f8f9fa !important;  /* 밝은 배경 */
+  color: #555 !important;           /* 어두운 텍스트 */
+  padding-top: 50px !important;
+  padding-bottom: 50px !important;
+  flex-shrink: 0;                  /* (flex 레이아웃용) */
+}
+/* 기존 템플릿 줄무늬 제거 */
+body.chat-page .site-footer:before,
+body.chat-page .site-footer:after {
+  display: none !important;
+}
+/* 제목 (방금 요청하신 파란색) */
+body.chat-page .site-footer .widget h3 {
+  color: #003366 !important; /* [변경] 이미지와 같이 진한 파란색으로 */
+}
+/* 링크, 주소, 일반 텍스트 */
+body.chat-page .site-footer a,
+body.chat-page .site-footer p,
+body.chat-page .site-footer li,
+body.chat-page .site-footer address {
+  color: #6c757d !important;
+}
+/* 링크 호버 (이것이 빨간색의 원인!) */
+body.chat-page .site-footer a:hover {
+  color: #ff0000 !important;
+  text-decoration: underline !important;
+}
+
+/* 소셜 아이콘 (방금 요청하신 진한 아이콘) */
+body.chat-page .site-footer .social li a {
+  background-color: #d9d9d9;  /* !important 제거됨 */
+  color: #555;               /* !important 제거됨 */
+}
+
+
+/* 저작권 텍스트 내 링크 */
+body.chat-page .site-footer p a {
+    color: #555 !important;
+}
+body.chat-page .site-footer p a:hover {
+    color: #ff0000 !important;
+}
+/* 구분선 (이전 수정) */
+body.chat-page .site-footer .row.mt-5 {
+    border-top: 1px solid #e9ecef !important;
+    padding-top: 40px !important;
+}
+
+/* ▼▼▼ [★이 코드가 수정되었습니다★] ▼▼▼ */
+/* [FIX] 소셜 아이콘 호버 시 올바른 배경/글자색 지정 */
+body.chat-page .site-footer .social li a:hover {
+  background-color: #00204A !important; /* [★추가★] 원하는 호버 배경색 */
+  color: #fff !important;            /* 아이콘 색상은 흰색으로 */
+  text-decoration: none !important;   /* 밑줄은 없음 */
+}
+/* ▲▲▲ [★이 코드가 수정되었습니다★] ▲▲▲ */
+
+
+/* --- 2. 챗봇 페이지 다크 테마 (HUD와 통일) --- */
+
+/* 2a. 페이지 전체/네비게이션바/본문 배경을 어둡게 */
+body.chat-page { 
+  background: #0f1624 !important; 
+  /* [Fix] 푸터가 딸려 올라오지 않게 flex 레이아웃 적용 */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+body.chat-page .site-nav,
+body.chat-page .site-nav .menu-bg-wrap,
+body.chat-page .site-nav .site-navigation {
+  background: #0f1624 !important;
+  box-shadow: none !important;
+}
+/* 본문(챗봇 영역) */
+body.chat-page .section.section-4,
+body.chat-page .chatbot-page {
+  background: #0f1624 !important;
+  margin-top: 0 !important;
+
+  /* [Fix] 푸터가 딸려 올라오지 않게 flex-grow 적용 */
+  flex-grow: 1;
+
+  /* [★추가★] 챗봇 UI를 세로 중앙에 정렬합니다 */
+  display: flex !important; 
+  flex-direction: column !important;
+  justify-content: center !important; /* 수직 중앙 정렬 */
+
+  /* [수정] 상하 여백을 padding으로 조정 (중앙 정렬 시 최소 여백) */
+  padding-top: 40px !important;    /* 헤더와 최소 간격 */
+  padding-bottom: 40px !important; /* 푸터와 최소 간격 */
+}
+
+/* 2b. ★★★ 문제의 빈 공간(브레드크럼) 숨김 ★★★ */
+body.chat-page #navbar-placeholder + .container,
+.chatbot-page .breadcrumb-bar,
+.chatbot-page nav[aria-label="breadcrumb"],
+.chatbot-page .heading-xl,
+.chatbot-page .text-muted-2,
+.chatbot-page .container .row.justify-content-center.text-center.mb-4 {
+  display: none !important;
+}
+
+/* 2c. 배경 효과가 헤더/푸터를 침범하지 않게 보정 */
+.chatbot-page .game-bg .scanlines { 
+  display: none !important; /* 상단 줄무늬 제거 */
+}
+
+/* [추가] 챗봇 사이드바 이벤트 배너 스타일 */
+.event-aside-link {
+  display: block; /* 링크가 div 영역 전체를 차지하도록 */
+}
+
+
+/* [추가] 챗봇 사이드바 '가이드' 패널 크기 축소 */
+.chatbot-page .side .panel-body.list {
+  padding: 10px 14px; /* 기존 16px보다 여백 축소 */
+}
+.chatbot-page .side .panel-body.list p {
+  font-size: 13px; /* 폰트 크기 축소 */
+  line-height: 1.5; /* 줄 간격 조정 */
+}
+
+.chatbot-page .side .panel:has(.event-aside-body) {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.event-aside-body {
+  padding: 0;
+  line-height: 0;
+  flex-grow: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* [유지] 슬라이더 래퍼가 남은 공간 차지 */
+.event-slider-wrapper {
+  flex-grow: 1;
+  min-height: 0; /* flex 자식에게 중요 */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.chatbot-page .side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 540px;
+}
+
+.chatbot-page .side .panel:has(.list) {
+  flex: 0 0 180px;   /* 🔽 가이드 영역을 줄임 */
+}
+
+.chatbot-page .side .panel:has(.event-aside-body) {
+  flex: 1;           /* 🔼 이벤트 영역이 남은 공간을 모두 채움 */
+}
+.event-slide a {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;   /* ✅ 모든 이미지의 비율을 고정 (16:9 권장) */
+    background-size: cover; /* ✅ 잘림 없이 꽉 차게 */
+    background-position: center center;
+    background-repeat: no-repeat;
+    border-radius: 10px;    /* (선택) 모서리 부드럽게 */
+    overflow: hidden;
+    transition: transform 0.25s ease;
+      /* ✅ 추가 */
+  height: 100%;
+  min-height: 220px; /* 모바일 대비 최소 높이 */
+}
+
+
+
+.event-slide a:hover {
+  transform: scale(1.03);
+}
+
+/* [유지] 이미지 태그는 숨김 */
+.event-aside-image {
+  display: none;
+}
+
+
+
+/* [추가] 하단 컨트롤 바 스타일 */
+.event-slider-controls {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid var(--stroke);
+  flex-shrink: 0;
+}
+.control-counter {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-right: 4px; /* 버튼과의 간격 */
+}
+
+.control-btn {
+  background: none;
+  border: 1px solid var(--stroke);
+  color: var(--text);
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  line-height: 20px; /* 아이콘 중앙 정렬 */
+  text-align: center;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 16px;
+}
+.control-btn:hover {
+  background: var(--accent);
+  color: var(--bg-0);
+  border-color: var(--accent);
+}
+#event-slider {
+    height: 100%; /* 부모(wrapper)의 높이를 채움 */
+    min-height: 0; /* flex/grid 오류 방지 */
+}
+
+/* [★수정★] Tiny Slider 내부 요소들의 height 강제 제거 */
+.tns-outer,
+.tns-inner,
+.tns-item,
+.event-slide {
+    /* height: 100% !important; << 제거됨 */
+    min-height: 0; /* 유지 가능 */
+}
+
+/* --- 챗봇 사이드바 슬라이더 높이 강제 --- */
+.chatbot-page .side .event-slider-wrapper,
+.chatbot-page .side #event-slider,
+.chatbot-page .side .tns-outer,
+.chatbot-page .side .tns-inner,
+.chatbot-page .side .tns-item, /* Tiny Slider가 생성하는 실제 슬라이드 래퍼 */
+.chatbot-page .side .event-slide {
+    height: 100% !important; /* 모든 관련 컨테이너 높이를 100%로 강제 */
+    min-height: 0;           /* flex/grid 환경에서 높이 계산 오류 방지 */
+}
+
+/* 이미지 자체는 이미 설정되어 있지만, 명확성을 위해 한 번 더 확인 */
+.chatbot-page .side .event-aside-image {
+    height: 100%;
+    object-fit: cover;
+}

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>챗봇</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="Untree.co">
+    <link rel="shortcut icon" href="LOGO.png">
+
+    <meta name="description" content="" />
+    <meta name="keywords" content="bootstrap, bootstrap5" />
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="fonts/icomoon/style.css">
+    <link rel="stylesheet" href="fonts/flaticon/font/flaticon.css">
+
+    <link rel="stylesheet" href="css/tiny-slider.css">
+    <link rel="stylesheet" href="css/aos.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="ranking.css">
+    <link rel="stylesheet" href="chatbot.css">
+
+    
+    </head>
+      <body class="chat-page">
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const isLoggedIn = localStorage.getItem("kakaoNickname") !== null;
+            if (!isLoggedIn) {
+                alert("로그인이 필요합니다. 로그인 페이지로 이동합니다.");
+                window.location.href = "1_login.html"; // 로그인 페이지
+            }
+        });
+    </script>
+            <div id="navbar-placeholder"></div>
+            <div class="container">
+                <div class="row justify-content-center align-items-center">
+                    <div class="col-lg-9 text-center mt-5">
+                        
+                        <nav aria-label="breadcrumb" data-aos="fade-up" data-aos-delay="200">
+                            <ol class="breadcrumb text-center justify-content-center">
+                                <li class="breadcrumb-item"><a href="4_main.html">Home</a></li>
+                                <li class="breadcrumb-item active text-white-50" aria-current="page">문의사항</li>
+                            </ol>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+<div class="section section-4 bg-light">
+  <div class="chatbot-page">
+
+    <!-- 배경 이펙트 (순수 CSS) -->
+    <div class="game-bg">
+      <div class="scanlines"></div>
+      <div class="grid"></div>
+      <div class="noise"></div>
+    </div>
+
+    <!-- 상단 브레드크럼(유지) -->
+    <div class="container">
+      <div class="row justify-content-center text-center mb-4">
+        <div class="col-lg-8">
+          <nav aria-label="breadcrumb" data-aos="fade-up" data-aos-delay="150">
+            <ol class="breadcrumb text-center justify-content-center">
+              <li class="breadcrumb-item"><a href="4_main.html">Home</a></li>
+              <li class="breadcrumb-item active text-white-50" aria-current="page">챗봇</li>
+            </ol>
+          </nav>
+          <h2 class="heading-xl" data-aos="fade-up" data-aos-delay="200">
+            NPC 대화: <span class="accent">스텔라</span>
+          </h2>
+          <p class="text-muted-2" data-aos="fade-up" data-aos-delay="250">예시: “장비 드랍 확률을 알려줘”</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 메인 레이아웃: 좌-채팅 / 우-보조패널 -->
+    <main class="container chat-layout">
+      <!-- 좌: 채팅 패널 -->
+      <section class="panel chat-panel" data-aos="fade-up">
+        <header class="panel-header">
+          <div class="title">
+            <span class="dot online"></span>
+            <strong>챗봇</strong>
+          </div>
+        </header>
+
+        <div id="chat-window" class="panel-body">
+          <!-- ⚠️ 기능 유지: chatbot.js 가 이곳에 메시지를 채움 -->
+          <div id="messages" class="messages"></div>
+
+          <!-- (디자인 전용) 필요시 타이핑 인디케이터를 표시하려면 HTML만 남겨둠 -->
+          <div id="typing-indicator" class="typing hidden">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+
+        <footer class="input-row">
+          <!-- ⚠️ 기능 유지: ID 그대로 -->
+          <div class="input-container">
+            <input type="text" id="user-input" placeholder="여기에 입력하고 Enter…" autocomplete="off" />
+            <button id="send-btn" class="send-btn"><span class="icon-send"></span> 전송</button>
+          </div>
+        </footer>
+
+        <!-- ⚠️ 기능 유지: chatbot.js가 ‘quick-questions-container’를 messages 내부에 생성 -->
+      </section>
+
+      <!-- 우: 보조 패널 (정보/바로가기) -->
+      <aside class="side">
+        <section class="panel" data-aos="fade-left" data-aos-delay="50">
+          <header class="panel-header compact">가이드</header>
+          <div class="panel-body list">
+            <p>• 게임/이벤트/게시물 관련 질문을 권장합니다.</p>
+            <p>• Enter 또는 전송 버튼으로 대화.</p>
+            <p>• 빠른질문 버튼을 누르면 빠른 대답을 받으실 수 있습니다.</p>
+          </div>
+        </section>
+
+        <section class="panel" data-aos="fade-left" data-aos-delay="100">
+          <header class="panel-header compact">이벤트</header>
+          <div class="panel-body event-aside-body" id="event-aside-container">
+              
+              <div class="event-slider-wrapper">
+                  <div class="event-slider" id="event-slider">
+                      <div class="event-slide">
+                          <p style="padding: 16px; color: var(--muted);">진행중인 이벤트를 불러오는 중...</p>
+                      </div>
+                  </div>
+              </div>
+
+              <div class="event-slider-controls">
+                  <button type="button" class="control-btn" data-controls="prev" title="이전">‹</button>
+                  <span class="control-counter" id="event-slider-counter"></span>
+                  <button type="button" class="control-btn" data-controls="next" title="다음">›</button>
+              </div>
+
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+</div>
+
+
+<div id="footer-placeholder"></div>
+
+<!-- Preloader -->
+<div id="overlayer"></div>
+<div class="loader">
+    <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+
+<script src="js/bootstrap.bundle.min.js"></script>
+<script src="js/tiny-slider.js"></script>
+<script src="js/aos.js"></script>
+<script src="js/navbar.js"></script>
+<script src="js/counter.js"></script>
+<script src="js/custom.js"></script>
+<script src="https://developers.kakao.com/sdk/js/kakao.min.js"></script>
+<script src="login-check.js"></script>
+<script src="https://sdk.amazonaws.com/js/aws-sdk-2.1093.0.min.js"></script>
+<script src="event_config.js"></script>
+<script src="chatbot.js"></script>
+
+<script>
+    // 전송 버튼 클릭 시 메시지 처리
+    document.getElementById('send-btn').addEventListener('click', function() {
+        const inputEl = document.getElementById('user-input');
+        const text = inputEl.value.trim();
+        if (!text) return;
+        if (typeof sendMessage === 'function') {
+            sendMessage(text);
+        } else {
+            const msg = document.createElement('div');
+            msg.textContent = text;
+            document.getElementById('messages').appendChild(msg);
+        }
+        inputEl.value = '';
+        inputEl.focus();
+    });
+    // 엔터키 전송 지원
+    document.getElementById('user-input').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') document.getElementById('send-btn').click();
+    });
+</script>
+<script>
+    // 닉네임 저장 함수
+    function saveNewNickname() {
+        const newNicknameInput = document.getElementById('nicknameInput');
+        if (!newNicknameInput) return;
+
+        const newNickname = newNicknameInput.value.trim();
+        if (newNickname.length < 2) {
+            alert('닉네임은 2자 이상 입력해야 합니다.');
+            return;
+        }
+        localStorage.setItem('myNickname', newNickname);
+
+        const userNameElement = document.getElementById('user-name');
+        if (userNameElement) {
+            userNameElement.textContent = newNickname;
+        }
+
+        const nicknameEditBox = document.getElementById('nicknameEditBox');
+        if (nicknameEditBox) {
+            nicknameEditBox.style.display = 'none';
+        }
+        alert('닉네임이 변경되었습니다!');
+    }
+
+    // 네비게이션 바 및 푸터의 동적 콘텐츠 초기화 함수
+    function initializePageElements() {
+        // --- 네비게이션 바 로그인 상태 및 이벤트 리스너 초기화 ---
+        const kakaoNickname = localStorage.getItem('kakaoNickname');
+        const myNickname = localStorage.getItem('myNickname') || kakaoNickname;
+
+        const loginMenu = document.getElementById('login-menu');
+        const userNameMenuContainer = document.getElementById('user-name-menu-container');
+        const userNameElement = document.getElementById('user-name');
+        const userInfoButton = document.getElementById('user-info');
+        const logoutButton = document.getElementById('logout');
+        const nicknameEditBox = document.getElementById('nicknameEditBox');
+        const nicknameInput = document.getElementById('nicknameInput');
+
+        if (kakaoNickname) {
+            if (loginMenu) loginMenu.style.display = 'none';
+            if (userNameMenuContainer) userNameMenuContainer.style.display = 'list-item';
+            if (userNameElement) userNameElement.textContent = myNickname || kakaoNickname;
+
+            if (userInfoButton) {
+                userInfoButton.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    if (nicknameEditBox) nicknameEditBox.style.display = 'block';
+                    if (nicknameInput) nicknameInput.value = myNickname || '';
+                });
+            }
+
+            if (logoutButton) {
+                logoutButton.addEventListener('click', function () {
+                    localStorage.removeItem('kakaoNickname');
+                    localStorage.removeItem('myNickname');
+                    if (typeof Kakao !== 'undefined' && Kakao.Auth && Kakao.Auth.logout) {
+                        Kakao.Auth.logout(function () {
+                            location.reload();
+                        });
+                    } else {
+                        console.warn('Kakao SDK not fully loaded or logout function unavailable. Reloading page.');
+                        location.reload();
+                    }
+                });
+            }
+        } else {
+            if (loginMenu) loginMenu.style.display = 'list-item';
+            if (userNameMenuContainer) userNameMenuContainer.style.display = 'none';
+        }
+
+        // --- 네비게이션 바 드롭다운/모바일 메뉴 JS 초기화 (템플릿에 따라) ---
+        if (typeof siteMenuClone === 'function') {
+            siteMenuClone();
+        } else if (window.UntreeCollab && typeof window.UntreeCollab.siteMenuClone === 'function') {
+            window.UntreeCollab.siteMenuClone();
+        }
+
+        // --- 푸터 현재 연도 설정 ---
+        const currentYearSpan = document.getElementById('current-year');
+        if (currentYearSpan) {
+            currentYearSpan.textContent = new Date().getFullYear();
+        }
+
+        // --- AOS 등 기타 라이브러리 재초기화 (필요한 경우) ---
+        if (typeof AOS !== 'undefined') {
+            AOS.refreshHard();
+        }
+    }
+
+    // [수정] 페이지 로드 시 공통 요소를 불러오고 모든 기능을 초기화하는 단일 블록
+    document.addEventListener("DOMContentLoaded", function() {
+        const navPromise = fetch("nav.html")
+            .then(response => {
+                if (!response.ok) throw new Error("Network response was not ok for nav.html: " + response.statusText);
+                return response.text();
+            })
+            .then(data => {
+                const navPlaceholder = document.getElementById("navbar-placeholder");
+                if (navPlaceholder) navPlaceholder.innerHTML = data;
+                else console.error("Error: Navbar placeholder element (#navbar-placeholder) not found.");
+            });
+
+        const footerPromise = fetch("footer.html")
+            .then(response => {
+                if (!response.ok) throw new Error("Network response was not ok for footer.html: " + response.statusText);
+                return response.text();
+            })
+            .then(data => {
+                const footerPlaceholder = document.getElementById("footer-placeholder");
+                if (footerPlaceholder) footerPlaceholder.innerHTML = data;
+                else console.error("Error: Footer placeholder element (#footer-placeholder) not found.");
+            });
+
+        // 네비게이션 바와 푸터 HTML이 모두 로드된 후 초기화 함수 실행
+        Promise.all([navPromise, footerPromise])
+            .then(() => {
+                // 1. 네비게이션/푸터 공통 UI 초기화
+                initializePageElements(); 
+                
+                // ▼▼▼ [수정] 챗봇 초기화 함수를 여기서 호출합니다. ▼▼▼
+                if (typeof initializeChatbot === 'function') {
+                    initializeChatbot(); // 이 함수가 성공해야 triggerWelcome 등이 호출됩니다.
+                } else {
+                    console.error("Error: initializeChatbot function not found.");
+                }
+
+                // 🚨 [삭제] 아래 두 줄은 initializeChatbot 내부로 옮겨졌으므로 삭제합니다.
+                // if (typeof triggerInitialWelcomeMessage === 'function') { ... }
+                // if (typeof loadAsideEventBanner === 'function') { ... }
+            })
+            .catch(error => console.error('Error loading common page elements (navbar/footer):', error));
+        });
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // 히어로 존재 여부에 따라 모드 전환
+  const hero = document.querySelector('.hero, .page-inner.overlay');
+  document.body.classList.toggle('has-hero', !!hero);
+
+  // 스크롤 시, 히어로 아래로 내려가면 불투명 모드
+  function updateNavState(){
+    if(!hero){ document.body.classList.add('nav-solid'); return; }
+    const navH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--nav-h')) || 72;
+    const bottom = hero.getBoundingClientRect().bottom;
+    if(bottom <= navH) document.body.classList.add('nav-solid');
+    else document.body.classList.remove('nav-solid');
+  }
+  updateNavState();
+  window.addEventListener('scroll', updateNavState, {passive:true});
+  window.addEventListener('resize', updateNavState);
+});
+</script>
+
+</body>
+</html>
+
+
+

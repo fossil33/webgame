@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Web Game UI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* 기본 스타일 */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .wrapper {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      background: #1a1a1a;
+    }
+    /* 상단 바 스타일 */
+    .top-bar {
+      background: #222;
+      color: #fff;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      z-index: 10;
+    }
+    .top-bar .logo { font-size: 1.2rem; }
+    .top-bar .menu button {
+      margin-left: 10px;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      background: #007bff;
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    /* 메인 콘텐츠 및 게임 컨테이너 스타일 */
+    .main-content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      position: relative; /* 자식 요소의 position을 위해 추가 */
+    }
+    .game-container {
+      position: relative;
+      flex: 1; /* 남은 공간을 모두 차지 */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #1a1a1a;
+    }
+    #unityContainer {
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+    /* 종료 확인 모달 스타일 */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      text-align: center;
+      max-width: 300px;
+      width: 80%;
+    }
+    .modal-buttons {
+      margin-top: 20px;
+      display: flex;
+      justify-content: space-around;
+    }
+    .modal-buttons button {
+      padding: 6px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .btn-confirm { background: #d9534f; color: #fff; }
+    .btn-cancel { background: #6c757d; color: #fff; }
+
+    /* 채팅 패널 스타일 */
+    .chat-panel{
+      width: 350px;
+      max-width: 420px;
+      min-width: 280px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background: #0f0f10;
+      border-left: 1px solid #222;
+      color: #fff;
+      position: absolute;
+      right: 0;
+      top: 0;
+      transform: translateX(100%);
+      transition: transform 0.3s ease-in-out;
+      z-index: 9999; /* Unity 캔버스/풀스크린보다 확실히 위 */
+    }
+
+    .chat-panel.show {
+      transform: translateX(0);
+    }
+    
+    .chat-header{ padding:10px 12px; font-weight:600; border-bottom:1px solid #222; }
+    .chat-body{ flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:8px; }
+    .chat-msg{ line-height:1.3; word-break:break-word; }
+    .chat-msg .who{ color:#77b7ff; margin-right:6px; }
+    .chat-system{ color:#9aa0a6; font-size:12px; text-align:center; }
+    .chat-input{ display:flex; gap:8px; padding:10px; border-top:1px solid #222; }
+    .chat-input input{ flex:1; padding:8px 10px; border-radius:6px; border:1px solid #333; background:#161618; color:#fff; }
+    .chat-input button{ padding:8px 12px; border:none; border-radius:6px; background:#2563eb; color:#fff; cursor:pointer; }
+    
+    .chat-presence{
+      display:flex; align-items:center; gap:8px;
+      padding:8px 10px; border-bottom:1px solid #222; background:#111;
+    }
+    .chat-presence select{ flex:1; background:#161618; color:#fff; border:1px solid #333; border-radius:6px; padding:6px 8px; }
+    .dm-badge{ font-size:11px; padding:2px 6px; border-radius:10px; background:#4b5563; color:#fff; margin-left:6px; }
+    .dm-self .who{ color:#22d3ee; }  /* 내가 보낸 DM */
+    .dm-other .who{ color:#f472b6; } /* 내가 받은 DM */ 
+  </style>
+
+  <style>
+/* ===== DM 알림: 벨 버튼 ===== */
+.chat-bell {
+  position: fixed; right: 18px; bottom: 18px;
+  width: 44px; height: 44px; border-radius: 9999px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(16,16,22,.9);
+  border: 1px solid rgba(255,255,255,.08);
+  color: #e5e7eb; cursor: pointer; z-index: 10010;
+  box-shadow: 0 10px 30px rgba(0,0,0,.45), inset 0 0 20px rgba(0,0,0,.2);
+  backdrop-filter: blur(6px);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.chat-bell:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(0,0,0,.55); }
+.chat-bell svg { width: 20px; height: 20px; opacity: .9; }
+.chat-bell.ringing { animation: bellring 1.2s ease-in-out infinite; }
+@keyframes bellring { 0%,100%{ transform: rotate(0deg);} 25%{ transform: rotate(-8deg);} 75%{ transform: rotate(8deg);} }
+
+/* 총 미읽음 배지 */
+.chat-bell .badge {
+  position: absolute; top: -6px; right: -6px;
+  min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: 10px; background: linear-gradient(135deg,#ff3d71,#ff9a3d);
+  color: #fff; font-weight: 700; font-size: 12px; line-height: 20px; text-align: center;
+  box-shadow: 0 6px 16px rgba(255,61,113,.4);
+}
+.chat-bell .badge.pulse::after{
+  content: ""; position: absolute; inset: -6px; border-radius: 14px;
+  border: 2px solid rgba(255,61,113,.35); animation: ping 1.4s ease-out infinite;
+}
+@keyframes ping { 0%{ transform: scale(.75); opacity:.8;} 80%{ transform: scale(1.35); opacity:0;} 100%{ opacity:0;} }
+
+/* ===== 하단 토스트 스택 ===== */
+.toast-stack {
+  position: fixed; right: 18px; bottom: 72px;
+  display: flex; flex-direction: column; gap: 10px; z-index: 10005;
+}
+.toast {
+  width: 300px; padding: 12px 12px;
+  background: linear-gradient(180deg,#14141a,#0f0f14);
+  border: 1px solid rgba(255,255,255,.08); border-radius: 12px;
+  color: #e5e7eb; box-shadow: 0 16px 40px rgba(0,0,0,.55);
+  display: grid; grid-template-columns: 36px 1fr auto; gap: 10px;
+  opacity: 0; transform: translateY(8px); animation: toast-in .22s ease forwards;
+}
+@keyframes toast-in { to{ opacity:1; transform: translateY(0);} }
+.toast.hide { animation: toast-out .18s ease forwards; }
+@keyframes toast-out { to{ opacity:0; transform: translateY(8px);} }
+.toast .avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: radial-gradient(100% 100% at 30% 20%, #3b82f6, #9333ea);
+  display:flex; align-items:center; justify-content:center; font-weight:800; color:#fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+.toast .title { font-size: 13px; font-weight: 800; line-height: 1.2; margin: 0; }
+.toast .msg   { font-size: 12px; opacity: .9; margin: 2px 0 0 0; }
+.toast .time  { font-size: 11px; opacity: .6; white-space: nowrap; padding-left: 8px; }
+.toast .dm-tag{
+  font-size: 10px; font-weight: 800; color:#111; background:#ffd166; border-radius: 6px;
+  padding: 2px 6px; display:inline-block; margin-left: 6px;
+}
+
+/* ===== 채팅 메시지 내 DM 뱃지(본문) ===== */
+.chat-msg .dm-badge{
+  display:inline-block; margin-left:6px; font-size:10px; font-weight:800;
+  color:#111; background:#ffd166; border-radius:6px; padding:2px 6px;
+}
+
+/* (선택) 미디어: 모바일에서 벨/토스트 살짝 키우기 */
+@media (max-width: 480px){
+  .chat-bell{ right: 14px; bottom: 14px; width: 48px; height: 48px; }
+  .toast{ width: min(90vw, 320px); }
+}
+
+/* DM 알림 버튼을 우상단으로 이동 */
+#dmAlert, .dm-fab{
+  position:absolute;
+  top:8px;           /* ⬅️ bottom 대신 top 사용 */
+  right:10px;
+  bottom:auto;       /* ⬅️ 기존 bottom 값 무효화 */
+  left:auto;
+  transform:none;
+
+  width:34px; height:34px;
+  border:none; border-radius:50%;
+  background:#2563eb; color:#fff;
+  font-size:16px; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 6px 16px rgba(0,0,0,.35);
+  cursor:pointer; z-index:30;    /* 헤더 위에 오도록 */
+}
+
+/* 알림 카운트 뱃지 */
+#dmAlert .count, .dm-fab .count{
+  position:absolute; top:-6px; right:-6px;
+  min-width:18px; height:18px; padding:0 5px;
+  border-radius:9px; background:#ef4444; color:#fff;
+  font-size:11px; display:inline-flex; align-items:center; justify-content:center;
+}
+</style>
+
+</head>
+<body>
+
+  <div class="wrapper" id="wrapper">
+    <div class="top-bar">
+      <div class="logo">My Web Game</div>
+      <div class="menu">
+        <button id="fullscreenBtn">전체 화면</button>
+        <button id="exitBtn">끝내기</button>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="game-container" id="gameContainer">
+        <canvas id="unityContainer"></canvas>
+      </div>
+      <aside class="chat-panel" id="chatPanel">
+        <div class="chat-header">채팅</div>
+        <div class="chat-presence">
+          <label for="dmTarget">대상</label>
+          <select id="dmTarget">
+            <option value="__GLOBAL__">전체 채팅</option>
+          </select>
+        </div>
+        <div class="chat-body" id="chatBody"></div>
+        <form class="chat-input" id="chatForm">
+          <input id="chatText" type="text" placeholder="메시지 입력"
+                 autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+          <button type="submit">전송</button>
+        </form>
+      </aside>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div>게임을 종료하시겠습니까?</div>
+      <div class="modal-buttons">
+        <button class="btn-confirm" id="confirmExit">예</button>
+        <button class="btn-cancel" id="cancelExit">아니오</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unity보다 먼저 T키 선점해서 패널 토글 -->
+  <script>
+(function setupChatHotkey(){
+  function bindHotkey(){
+    const panel = document.getElementById('chatPanel');
+    const input = document.getElementById('chatText');
+    if (!panel || !input) return false;
+
+    const toggle = () => {
+      const willOpen = !panel.classList.contains('show');
+      panel.classList.toggle('show');
+      if (willOpen) setTimeout(() => input.focus(), 0);
+      else input.blur();
+    };
+
+    const handler = (e) => {
+  // 조합 중/keyup/키 반복은 무시 → 중복 토글 방지
+  if (e.isComposing || e.type !== 'keydown' || e.repeat) return;
+
+  const key  = (e.key || '').toLowerCase();
+  const code = e.code || '';
+  const isT  = (key === 't' || code === 'KeyT');
+  if (!isT) return;
+
+  const a = document.activeElement;
+  const inEditable = a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable);
+  const inChat     = a && panel.contains(a);
+
+  // ✅ 패널이 열려 있으면, 인풋에 포커스가 있어도 T로 닫기 허용
+  if (panel.classList.contains('show')) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    panel.classList.remove('show');
+    // 닫을 땐 포커스 해제(IME/커서 남는 현상 방지)
+    if (inEditable) a.blur();
+    return;
+  }
+
+  // ✅ 패널이 닫혀 있을 땐, 다른 입력창 사용 중이면 T 무시(의도치 않은 열림 방지)
+  if (inEditable && !inChat) return;
+
+  // 열기
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  panel.classList.add('show');
+  setTimeout(() => input.focus(), 0);
+};
+
+    window.addEventListener('keydown',  handler, { capture:true });
+    document.addEventListener('keydown', handler, { capture:true });
+    window.addEventListener('keyup',    handler, { capture:true });
+    document.addEventListener('keyup',  handler, { capture:true });
+    return true;
+  }
+
+  if (!bindHotkey()) {
+    document.addEventListener('DOMContentLoaded', bindHotkey, { once:true });
+  }
+})();
+</script>
+
+
+  <script src="TemplateData/Build/test.loader.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      let unityInstance = null;
+      
+      const isLoggedIn = localStorage.getItem("kakaoNickname") !== null;
+      if (!isLoggedIn) {
+          alert("로그인이 필요합니다. 로그인 페이지로 이동합니다.");
+          window.location.href = "1_login.html";
+          return;
+      }
+
+      const canvas = document.querySelector("#unityContainer");
+      if (typeof createUnityInstance === 'function') {
+        createUnityInstance(canvas, {
+          dataUrl: "/TemplateData/Build/test.data",
+          frameworkUrl: "/TemplateData/Build/test.framework.js",
+          codeUrl: "/TemplateData/Build/test.wasm",
+          streamingAssetsUrl: "/TemplateData/StreamingAssets",
+        }).then(instance => {
+          unityInstance = instance;
+          console.log("Unity 인스턴스 생성 완료.");
+        }).catch(console.error);
+      } else {
+        console.error("Unity 로더 스크립트를 찾을 수 없습니다.");
+      }
+
+      window.onUnityReady = function() {
+          console.log("Unity에서 '준비 완료' 신호를 받았습니다.");
+          const userId = localStorage.getItem('userId');
+          const nickname = localStorage.getItem('kakaoNickname');
+          const loginData = { user_id: userId, nickname: nickname };
+          const loginDataJsonString = JSON.stringify(loginData);
+
+          if (unityInstance) {
+              unityInstance.SendMessage("PublicAPIManager", "ReceiveLoginData", loginDataJsonString);
+              console.log("로그인 정보를 Unity로 전송했습니다:", loginDataJsonString);
+          } else {
+              console.error("Unity 인스턴스가 아직 준비되지 않았습니다.");
+          }
+      };
+
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
+      const wrapper = document.getElementById('wrapper');
+      if (fullscreenBtn && wrapper) {
+        fullscreenBtn.addEventListener('click', () => {
+          if (wrapper.requestFullscreen) {
+            wrapper.requestFullscreen();
+          }
+        });
+      }
+
+      const exitBtn = document.getElementById('exitBtn');
+      const modalOverlay = document.getElementById('modalOverlay');
+      const confirmExit = document.getElementById('confirmExit');
+      const cancelExit = document.getElementById('cancelExit');
+
+      if (exitBtn) {
+        exitBtn.addEventListener('click', () => {
+          if (modalOverlay) modalOverlay.style.display = 'flex';
+        });
+      }
+
+      if (confirmExit) {
+        confirmExit.addEventListener('click', () => {
+          const gameContainer = document.getElementById('gameContainer');
+          if (gameContainer) {
+            gameContainer.innerHTML = `
+              <div style="text-align:center; color:white;">
+                <h2>게임이 종료되었습니다.</h2>
+                <button id="goToMainBtn" style="padding: 10px 20px; font-size: 1rem; cursor: pointer; border-radius: 5px; border: none; background: #007bff; color: white;">메인으로 돌아가기</button>
+              </div>
+            `;
+            document.getElementById('goToMainBtn')?.addEventListener('click', () => {
+              window.location.href = "4_main.html";
+            });
+          }
+          if (modalOverlay) modalOverlay.style.display = 'none';
+        });
+      }
+
+      if (cancelExit) {
+        cancelExit.addEventListener('click', () => {
+          if (modalOverlay) modalOverlay.style.display = 'none';
+        });
+      }
+      // === 채팅 보호막: Unity보다 먼저 캡처 단계에서 이벤트 전파만 차단 ===
+(function installChatShield(){
+  const panel = document.getElementById('chatPanel');
+
+  function shield(e){
+    if (!panel || !panel.classList.contains('show')) return;
+
+    const target = e.target;
+    const inChatPanel = panel.contains(target);
+
+    if (inChatPanel) {
+      // ✅ 인풋/패널 내부 키 입력은 "전파만" 막고 기본 동작은 유지 → 문자/스페이스 정상 입력
+      e.stopImmediatePropagation();
+      // (절대 preventDefault 하지 마세요: 기본 입력이 취소됩니다)
+    } else {
+      // 패널이 열렸을 때, 패널 바깥 키는 게임으로 못 가게 완전 차단
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }
+
+  ['keydown','keypress','keyup'].forEach(type => {
+    window.addEventListener(type,  shield, { capture:true });
+    document.addEventListener(type, shield, { capture:true });
+  });
+})();
+
+    });
+  </script>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+window.addEventListener('DOMContentLoaded', () => {
+  if (window.__CHAT_INITIALIZED__) return;
+  window.__CHAT_INITIALIZED__ = true;
+
+  const userId   = localStorage.getItem('userId');
+  const nickname = localStorage.getItem('kakaoNickname') || '손님';
+
+  const chatPanel = document.getElementById('chatPanel') || document.querySelector('.chat-panel');
+  const chatBody  = document.getElementById('chatBody');
+  const chatForm  = document.getElementById('chatForm');
+  const chatText  = document.getElementById('chatText');
+  const dmTarget  = document.getElementById('dmTarget');
+
+  const socket = io();
+  socket.on('connect', () => {
+    console.log('채팅 서버에 연결되었습니다.');
+    socket.emit('login', { userId, nickname });
+  });
+
+  // ===== 상태 =====
+  const VIEW_GLOBAL = '__GLOBAL__';
+  let currentView = VIEW_GLOBAL;
+  const logs = { global: [], dm: new Map() }; // peerId -> rows[]
+  const dmOptionsMap = new Map();             // peerId -> { nickname }
+  const unreadCounts = new Map();             // peerId -> number
+  const ORIGINAL_TITLE = document.title;
+  const BEEP_ON = true;
+
+  // 패널 열림 여부
+  const isPanelOpen = () => !!(chatPanel && chatPanel.classList.contains('show'));
+
+  // ===== UI: 벨 아이콘(오른쪽 아래 고정) & 토스트 스택 =====
+  const bell = document.createElement('button');
+  bell.className = 'chat-bell';
+  bell.setAttribute('aria-label','DM 알림');
+  bell.innerHTML = `
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 1 0-14 0v5l-2 2v1h18v-1l-2-2Z"/>
+    </svg>
+    <span id="dmTotalBadge" class="badge" style="display:none">0</span>`;
+  // ⬇️ 오른쪽 아래 고정
+  Object.assign(bell.style, {
+    position:'fixed', right:'18px', bottom:'18px',
+    width:'44px', height:'44px', borderRadius:'9999px',
+    display:'flex', alignItems:'center', justifyContent:'center',
+    background:'rgba(16,16,22,.9)', border:'1px solid rgba(255,255,255,.08)',
+    color:'#e5e7eb', cursor:'pointer', zIndex:'10010',
+    boxShadow:'0 10px 30px rgba(0,0,0,.45), inset 0 0 20px rgba(0,0,0,.2)',
+    backdropFilter:'blur(6px)'
+  });
+  document.body.appendChild(bell);
+
+  const toastStack = document.createElement('div');
+  toastStack.className = 'toast-stack';
+  document.body.appendChild(toastStack);
+
+  const showBell = () => { bell.style.display = 'flex'; };
+  const hideBell = () => { bell.style.display = 'none'; };
+
+  // 패널 열림/닫힘 감지 → 벨 표시/숨김 + 열릴 때 읽음 보정
+  if (chatPanel) {
+    const mo = new MutationObserver(() => {
+      const open = isPanelOpen();
+      if (open) {
+        hideBell();
+        // 패널을 다시 열었고 현재 뷰가 DM이면 즉시 읽음 처리
+        if (currentView !== VIEW_GLOBAL) {
+          markRead(currentView);
+          refreshTitleBadge(); updateBell();
+        }
+        // 새 메시지 DOM 렌더 보정
+        renderAll();
+      } else {
+        showBell();
+      }
+    });
+    mo.observe(chatPanel, { attributes: true, attributeFilter: ['class'] });
+    // 초기 상태 보정
+    if (isPanelOpen()) hideBell(); else showBell();
+  } else {
+    showBell();
+  }
+
+  // 벨 클릭 → 패널 열고(미읽음 첫 DM으로 이동)
+  bell.addEventListener('click', () => {
+    const firstUnread = [...unreadCounts.keys()][0];
+    if (chatPanel) chatPanel.classList.add('show');   // MO가 벨을 숨김
+    if (dmTarget) {
+      dmTarget.value = firstUnread || VIEW_GLOBAL;
+      dmTarget.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    setTimeout(() => chatText?.focus(), 0);
+  });
+
+  // ===== 유틸 =====
+  const esc = (s) => {
+    const p = document.createElement('p');
+    p.appendChild(document.createTextNode(s || ''));
+    return p.innerHTML;
+  };
+  function pushToDOM(html, cls=''){
+    const div = document.createElement('div');
+    if (cls) div.className = cls;
+    div.innerHTML = html;
+    chatBody.appendChild(div);
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+  function renderAll(){
+    chatBody.innerHTML = '';
+    const list = (currentView === VIEW_GLOBAL) ? logs.global : (logs.dm.get(String(currentView)) || []);
+    list.forEach(({html, cls}) => pushToDOM(html, cls));
+  }
+  function updatePlaceholder(){
+    if (!chatText) return;
+    if (dmTarget && dmTarget.value !== VIEW_GLOBAL){
+      const nn = dmOptionsMap.get(dmTarget.value)?.nickname || `#${dmTarget.value}`;
+      chatText.placeholder = `DM → ${nn}`;
+    } else chatText.placeholder = '전체 채팅 메시지 입력';
+  }
+  function sumUnread(){
+    let s=0; unreadCounts.forEach(v => s += v||0); return s;
+  }
+  function refreshTitleBadge(){
+    const total = sumUnread();
+    document.title = total>0 ? `(${total}) ${ORIGINAL_TITLE}` : ORIGINAL_TITLE;
+  }
+  function updateBell(){
+    const total = sumUnread();
+    const badge = document.getElementById('dmTotalBadge');
+    if (!badge) return;
+    if (total>0){
+      badge.style.display = 'inline-block';
+      badge.textContent = total>99 ? '99+' : String(total);
+      badge.classList.add('pulse');
+      bell.classList.add('ringing');
+    } else {
+      badge.style.display = 'none';
+      badge.classList.remove('pulse');
+      bell.classList.remove('ringing');
+    }
+  }
+  function getOptionByValue(val){
+    if (!dmTarget) return null;
+    return [...dmTarget.options].find(o => o.value === String(val)) || null;
+  }
+  function labelFor(val){
+    const id = String(val);
+    const nn  = dmOptionsMap.get(id)?.nickname || `#${id}`;
+    const off = dmOptionsMap.has(id) ? '' : ' (오프라인)';
+    const cnt = unreadCounts.get(id) || 0;
+    return cnt>0 ? `${nn}${off} · ${cnt}` : `${nn}${off}`;
+  }
+  function setOptionLabel(val){
+    const opt = getOptionByValue(val);
+    if (opt) opt.textContent = labelFor(val);
+  }
+  function markRead(peerId){
+    if (!peerId || peerId === VIEW_GLOBAL) return;
+    if (unreadCounts.has(String(peerId))){
+      unreadCounts.delete(String(peerId));
+      setOptionLabel(String(peerId));
+    }
+  }
+
+  // 효과음: DM을 내가 받을 때마다 1회 재생
+  function beepOnce(){
+    if (!BEEP_ON) return;
+    try{
+      const ctx = new (window.AudioContext||window.webkitAudioContext)();
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'sine'; o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+      o.start(); o.stop(ctx.currentTime + 0.2);
+    }catch(_){}
+  }
+
+  const hhmm = d => new Date(d||Date.now()).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  function showToast(peerId, peerName, message, ts){
+    const t = document.createElement('div'); t.className = 'toast';
+    const initials = String(peerName||'#').trim()[0]?.toUpperCase() || 'U';
+    const safeMsg = esc(message).slice(0, 120);
+    t.innerHTML = `
+      <div class="avatar">${esc(initials)}</div>
+      <div>
+        <p class="title">${esc(peerName)} <span class="dm-tag">DM</span></p>
+        <p class="msg">${safeMsg}</p>
+      </div>
+      <div class="time">${hhmm(ts)}</div>
+    `;
+    toastStack.appendChild(t);
+
+    t.addEventListener('click', () => {
+      if (chatPanel) chatPanel.classList.add('show');
+      if (dmTarget){
+        dmTarget.value = String(peerId);
+        dmTarget.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      hideToast(t);
+      setTimeout(() => chatText?.focus(), 0);
+    });
+
+    const hideToast = (el) => {
+      if (!el || el.classList.contains('hide')) return;
+      el.classList.add('hide');
+      setTimeout(() => el.remove(), 180);
+    };
+    setTimeout(() => hideToast(t), 6000);
+  }
+
+  // ===== 수신 =====
+  socket.on('chat:system', (text) => {
+    const row = { html: esc(text), cls: 'chat-system' };
+    logs.global.push(row);
+    if (currentView === VIEW_GLOBAL) pushToDOM(row.html, row.cls);
+  });
+
+  socket.on('chat:msg', ({ user, message, ts }) => {
+    const time = new Date(ts || Date.now()).toLocaleTimeString();
+    const html = `<span class="who">[${esc(time)}] ${esc(user)}</span> <span class="text">${esc(message)}</span>`;
+    const row  = { html, cls: 'chat-msg' };
+    logs.global.push(row);
+    if (currentView === VIEW_GLOBAL) pushToDOM(row.html, row.cls);
+  });
+
+  // DM은 전역 로그에 추가하지 않음
+  socket.on('chat:dm', ({ fromUserId, from, toUserId, message, ts }) => {
+    const mine     = String(fromUserId) === String(userId);
+    const peerId   = mine ? String(toUserId) : String(fromUserId);
+    const peerName = mine ? (dmOptionsMap.get(peerId)?.nickname || `#${peerId}`)
+                          : (from || dmOptionsMap.get(peerId)?.nickname || `#${peerId}`);
+    const time     = new Date(ts || Date.now()).toLocaleTimeString();
+    const badge    = `<span class="dm-badge">DM</span>`;
+    const whoLine  = mine ? `나 → ${esc(peerName)}` : `${esc(peerName)}`;
+    const html     = `<span class="who">[${esc(time)}] ${whoLine} ${badge}</span> <span class="text">${esc(message)}</span>`;
+    const row      = { html, cls: `chat-msg ${mine ? 'dm-self' : 'dm-other'}` };
+
+    if (!logs.dm.has(peerId)) logs.dm.set(peerId, []);
+    logs.dm.get(peerId).push(row);
+
+    // ✅ 내가 받은 DM이면 항상 효과음
+    if (!mine) beepOnce();
+
+    // 패널이 열려 있고 + 현재 뷰가 이 DM일 때만 "보고 있음"으로 간주
+    const viewingThisPeer = isPanelOpen() && String(currentView) === peerId;
+
+    if (viewingThisPeer){
+      pushToDOM(row.html, row.cls);
+      if (!mine) { markRead(peerId); refreshTitleBadge(); updateBell(); }
+    } else {
+      if (!mine){
+        unreadCounts.set(peerId, (unreadCounts.get(peerId) || 0) + 1);
+        setOptionLabel(peerId);
+        refreshTitleBadge(); updateBell();
+        showToast(peerId, peerName, message, ts);
+      }
+    }
+  });
+
+  // 온라인 목록 수신 → 대상 셀렉트 갱신 (본인 제외 + 라벨에 미읽음 유지)
+  socket.on('presence:list', (list = []) => {
+    const current = dmTarget ? dmTarget.value : VIEW_GLOBAL;
+
+    dmOptionsMap.clear();
+    dmTarget.innerHTML = `<option value="${VIEW_GLOBAL}">전체 채팅</option>`;
+
+    list
+      .filter(u => String(u.userId) !== String(userId))
+      .forEach(u => {
+        dmOptionsMap.set(String(u.userId), { nickname: u.nickname });
+        const opt = document.createElement('option');
+        opt.value = String(u.userId);
+        opt.textContent = labelFor(u.userId);
+        dmTarget.appendChild(opt);
+      });
+
+    let hasCurrent = [...dmTarget.options].some(o => o.value === current);
+    if (!hasCurrent && current !== VIEW_GLOBAL && (logs.dm.has(String(current)) || unreadCounts.has(String(current)))){
+      const opt = document.createElement('option');
+      opt.value = String(current);
+      opt.textContent = labelFor(current);
+      dmTarget.appendChild(opt);
+      hasCurrent = true;
+    }
+
+    dmTarget.value = hasCurrent ? current : VIEW_GLOBAL;
+    currentView    = dmTarget.value || VIEW_GLOBAL;
+    updatePlaceholder();
+    renderAll();
+    refreshTitleBadge(); updateBell();
+  });
+
+  // 보기 전환 → 해당 DM 읽음 처리
+  dmTarget?.addEventListener('change', () => {
+    currentView = dmTarget.value || VIEW_GLOBAL;
+    updatePlaceholder();
+    renderAll();
+    if (currentView !== VIEW_GLOBAL) { markRead(currentView); refreshTitleBadge(); updateBell(); }
+  });
+
+  // ===== 전송 =====
+  chatForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const message = chatText.value.trim();
+    if (!message) return;
+
+    const targetId = dmTarget?.value || VIEW_GLOBAL;
+    if (targetId === VIEW_GLOBAL) socket.emit('chat:msg', { message });
+    else socket.emit('chat:dm', { toUserId: targetId, message });
+
+    chatText.value = ''; chatText.focus();
+  });
+
+  // ===== 입력 충돌 방지 =====
+  chatText.addEventListener('keydown', (e) => {
+    if (e.isComposing) return;
+    if (e.key === 'Enter'){
+      e.preventDefault(); e.stopPropagation();
+      if (chatForm.requestSubmit) chatForm.requestSubmit();
+      else chatForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      return;
+    }
+    e.stopPropagation();
+    const printable = e.key && e.key.length===1 && !e.ctrlKey && !e.metaKey && !e.altKey;
+    if (printable && e.defaultPrevented){
+      const el = chatText; const s = el.selectionStart, t = el.selectionEnd;
+      el.value = el.value.slice(0,s) + e.key + el.value.slice(t);
+      const caret = s + e.key.length; el.setSelectionRange(caret, caret);
+    }
+  }, { capture: true });
+
+  ['keypress','keyup'].forEach(type => {
+    chatText.addEventListener(type, (e) => {
+      if (!isPanelOpen()) return;
+      e.stopPropagation();
+    }, { capture: true });
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (!isPanelOpen()) return;
+    if (chatPanel && chatPanel.contains(e.target)) return;
+    e.stopPropagation(); e.preventDefault();
+  }, { capture: true });
+});
+</script>
+
+
+
+
+
+
+</body>
+</html>

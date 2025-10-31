@@ -1,0 +1,250 @@
+/* [추가] chatbot.css의 디자인 변수 가져오기 */
+:root{
+  --bg-0:#0b0f17; --bg-1:#0f1624;
+  --panel:rgba(18,24,38,.72); --panel-strong:rgba(18,24,38,.92);
+  --stroke:rgba(120,200,255,.22); --text:#e6f1ff; --muted:#9fb4cc;
+  --accent:#4fd1ff; --accent2:#9d6bff; --success:#4fe3a3;
+  --danger: #e63946;
+  --font-body: 'Work Sans', sans-serif; /* 기본 폰트 지정 */
+}
+
+/* === 기본 & 배경 스타일 === */
+body {
+    font-family: var(--font-body);
+    background-color: var(--bg-1);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+    /* 배경 그라데이션 적용 */
+    background: radial-gradient(1200px 600px at 80% -20%, rgba(79,209,255,.12), transparent),
+                radial-gradient(800px 500px at -20% 30%, rgba(157,107,255,.12), transparent),
+                linear-gradient(180deg, var(--bg-0), var(--bg-1));
+}
+
+a { color: var(--accent); text-decoration: none; transition: color 0.3s ease; }
+a:hover { color: #fff; }
+
+/* chatbot.css 배경 효과 */
+.game-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+.game-bg .grid { position:absolute; inset:0; background-image: linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px), linear-gradient(90deg, rgba(255,255,255,.03) 1px,transparent 1px); background-size:40px 40px,40px 40px; }
+.game-bg .noise { position:absolute; inset:0; background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.035'/></svg>"); mix-blend-mode:soft-light; }
+
+/* === 히어로 (Hero) === */
+.hero .heading { font-family: var(--font-body); font-size: 3rem; font-weight: 700; text-shadow: 0 0 15px var(--accent); color: #fff; }
+.hero .breadcrumb { font-family: var(--font-body); }
+.hero .breadcrumb .breadcrumb-item a { color: var(--accent); }
+.hero::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(to top, var(--bg-1) 5%, transparent 100%); z-index: 1; }
+
+/* === 공통 .panel 스타일 (chatbot.css 기반) === */
+.panel {
+    border:1px solid var(--stroke);
+    background:var(--panel);
+    border-radius:16px;
+    backdrop-filter:blur(10px);
+    box-shadow:0 0 18px rgba(0,180,255,.2), inset 0 0 12px rgba(0,180,255,.06);
+    overflow: hidden;
+}
+
+/* === 랭킹 컨테이너 === */
+.leaderboard-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem; /* 카드 간격 */
+  justify-content: center;
+  padding: 3rem 1.5rem; /* 상하좌우 여백 */
+  position: relative;
+  z-index: 2; /* 배경 위에 오도록 */
+  max-width: 1000px; /* [★수정★] 최대 너비를 살짝 줄여 2열 유지 */
+  margin: -60px auto 40px auto; /* 히어로와 겹치게 */
+}
+
+/* === 랭킹 카드 (.panel 스타일 적용) === */
+.leaderboard-card {
+  /* [★수정★] flex-basis를 사용하여 한 줄에 2개씩 배치되도록 너비 조정 */
+  flex: 0 1 calc(50% - 1rem); /* 50% 너비에서 gap의 절반(1rem) 빼기 */
+  min-width: 300px; /* 최소 너비는 유지 */
+  max-width: 450px; /* 최대 너비 조정 (선택 사항) */
+  
+  /* .panel 스타일 적용 */
+  border:1px solid var(--stroke);
+  background:var(--panel);
+  border-radius:16px;
+  backdrop-filter:blur(10px);
+  box-shadow:0 0 18px rgba(0,180,255,.2), inset 0 0 12px rgba(0,180,255,.06);
+  overflow: hidden; /* 내부 요소가 넘치지 않도록 */
+  
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.leaderboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(79,209,255,.3);
+    border-color: var(--accent);
+}
+
+/* === 카드 헤더 (포디움 포함) === */
+.leaderboard-header {
+  width: 100%;
+  padding: 1.5rem 1.5rem 1rem;
+  background: linear-gradient(180deg, rgba(79,209,255,.1), transparent);
+  border-bottom: 1px solid var(--stroke);
+  text-align: center;
+  position: relative;
+}
+
+.leaderboard-header h1 {
+  font-size: 1.6rem;
+  color: var(--accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 1.5rem;
+  text-shadow: 0 0 10px var(--accent);
+}
+
+/* 포디움 (JS 생성 부분) */
+.top-three-players {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    align-items: flex-end;
+    padding-top: 1rem;
+    margin-bottom: 0.5rem;
+    min-height: 100px;
+}
+
+.top-player {
+    text-align: center;
+    color: var(--text);
+    font-size: 0.9rem;
+    position: relative;
+    transition: transform 0.3s ease;
+}
+.top-player:hover {
+    transform: scale(1.1);
+}
+
+.top-player.rank-1 { order: 2; margin-bottom: 1rem; }
+.top-player.rank-2 { order: 1; }
+.top-player.rank-3 { order: 3; }
+
+.top-player .trophy-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+    display: block;
+    line-height: 1;
+}
+.top-player.rank-1 .trophy-icon { font-size: 3rem; }
+
+.top-player.rank-1 .trophy-icon { color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.7); }
+.top-player.rank-2 .trophy-icon { color: #C0C0C0; text-shadow: 0 0 10px rgba(192, 192, 192, 0.7); }
+.top-player.rank-3 .trophy-icon { color: #CD7F32; text-shadow: 0 0 10px rgba(205, 127, 50, 0.7); }
+
+.top-player .player-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 0.2rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
+    display: block;
+}
+
+.top-player .player-score {
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+/* === 테이블 본문 (4등 이하) === */
+.leaderboard-body {
+  width: 100%;
+  padding: 1rem 1.5rem 1.5rem;
+  flex-grow: 1;
+  overflow-y: auto;
+  max-height: 300px;
+}
+
+.leaderboard-body table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 0.5rem;
+  table-layout: fixed;
+}
+
+.leaderboard-body thead { display: none; }
+
+.leaderboard-body tr {
+    transition: background-color 0.2s ease, transform 0.2s ease;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.leaderboard-body tbody tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+    transform: scale(1.02);
+}
+
+.leaderboard-body td {
+    padding: 0.8rem 1rem;
+    text-align: left;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--stroke);
+    background: transparent;
+}
+.leaderboard-body tr:last-child td {
+    border-bottom: none;
+}
+
+.leaderboard-body td.rank {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--muted);
+    width: 40px;
+    text-align: center;
+    padding-right: 0.5rem;
+}
+
+.leaderboard-body td.name {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.leaderboard-body td.value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-align: right;
+    width: 80px;
+}
+
+/* 데이터 없을 때 메시지 */
+.empty-message {
+    text-align: center !important;
+    font-size: 1rem;
+    color: var(--muted);
+    padding: 2.5rem 1rem !important;
+    background: rgba(18,24,38,.4) !important;
+    border-radius: 8px;
+    border: 1px dashed var(--stroke);
+}
+td.empty-message {
+    display: table-cell;
+    width: 100%;
+}
+
+
+/* 반응형 조정 */
+@media (max-width: 768px) { /* 768px 이하일 때 1열로 변경 */
+    .leaderboard-container { gap: 1.5rem; padding: 3rem 1rem; max-width: 500px; } /* 컨테이너 최대 너비 조정 */
+    .leaderboard-card {
+        flex: 0 1 100%; /* 한 줄에 하나씩 */
+        max-width: none; /* 최대 너비 제한 해제 */
+    }
+}

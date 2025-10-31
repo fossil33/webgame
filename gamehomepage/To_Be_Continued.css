@@ -1,0 +1,161 @@
+/* Path: To_Be_Continued.css */
+
+/* Keep existing .inquiry-container styles */
+.inquiry-container {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+/* Main category tabs styling to match the appearance of file-UG1Qxu7y5EjuSASyuJKi3j.png */
+.inquiry-main-categories {
+    /* border-bottom: none; */ /* Original rule */
+    border-bottom: 1px solid #DDDDDD; /* New: Adds a light gray line underneath all tabs, like in the target image */
+    /* display: flex; */ /* Optional: if your nav-items are not already behaving correctly with margins */
+}
+
+.inquiry-main-categories .nav-item {
+    margin-bottom: 0; /* Ensures items align correctly with the new border approach */
+}
+
+.inquiry-main-categories .nav-item .nav-link {
+    /* background-color: #f0f0f0; */ /* Original: Light gray for inactive tabs */
+    background-color: #ffffff;       /* New: White background for inactive tabs */
+    
+    /* color: #333; */               /* Original: Default text color */
+    color: #333333;                   /* New: Standard dark gray text color */
+    
+    /* border: 1px solid #ccc; */     /* Original: Default border */
+    border: 1px solid #DDDDDD;       /* New: Light gray border for top, left, and right sides */
+    
+    /* border-bottom: 1px solid #ccc; */ /* Original: Bottom border for inactive tabs */
+    border-bottom: none;              /* New: Bottom border is now handled by .inquiry-main-categories for a continuous line */
+    
+    /* margin-right: 2px; */          /* Original: Spacing between tabs */
+    margin-right: -1px;               /* New: Collapses adjacent borders to appear as a single line. Tabs will touch. */
+                                      /* Note: Bootstrap's default .nav-tabs often uses margin-left on .nav-item + .nav-item */
+
+    padding: 10px 20px;               /* Retained: Padding within tabs */
+    font-size: 1.2rem;                  /* Retained: Font size */
+    
+    /* border-radius: 5px 5px 0 0; */ /* Original: Rounded top corners */
+    border-radius: 0;                 /* New: Sharp, rectangular corners for tabs */
+    
+    position: relative;               /* Retained: For z-index positioning */
+    z-index: 1;                       /* Retained: Default stacking order */
+}
+
+/* Ensures the last tab doesn't have an "extra" collapsed border on the right */
+.inquiry-main-categories .nav-item:last-child .nav-link {
+    margin-right: 0;
+}
+
+.inquiry-main-categories .nav-item .nav-link.active {
+    /* background-color: #337ab7; */ /* Original: Blue color for active tab */
+    background-color: #FF6821;       /* New: Orange background for active tab (color picked from file-UG1Qxu7y5EjuSASyuJKi3j.png) */
+    
+    color: white;                     /* Retained: White text color for active tab */
+    
+    /* border-color: #337ab7 #337ab7 #337ab7; */ /* Original: Border color for active tab */
+    border: 1px solid #FF6821;        /* New: Border color matches the orange background for a seamless look */
+    /* border-bottom: 1px solid #337ab7; */  /* Original bottom border for active tab */
+    border-bottom: none;              /* New: Active tab's bottom edge will appear to sit on the main container's border */
+
+    font-weight: bold;                /* Retained: Active tab text is bold. Change to 'normal' if the target image's active tab is not bold. */
+    z-index: 2;                       /* Retained: Active tab appears above others */
+    margin-bottom: -1px;              /* New: Pulls the active tab down slightly to cover the .inquiry-main-categories' bottom border, making it look connected. */
+}
+
+/* Remove the arrow from the active tab */
+.inquiry-main-categories .nav-item .nav-link.active::after {
+    content: none; /* New: Removes the downward-pointing arrow */
+    /* Original arrow styles:
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 10px solid #337ab7;
+    */
+}
+
+/* Sub-categories section styling adjustments */
+.inquiry-sub-categories {
+    padding: 15px;
+    border: 1px solid #e0e0e0;      /* Retained: Existing border style for sub-categories */
+    /* border-top: none; */           /* Original: Top border was removed */
+    border-top: 1px solid #e0e0e0;  /* New/Adjusted: Ensure a consistent top border, matching other sides of this container. Use #DDDDDD if you want it to match the main tab underline color. */
+    background-color: #fff;
+    /* margin-top: -1px; */           /* Original: Slight overlap */
+    margin-top: 0;                  /* New: Align directly below the main categories line */
+    border-radius: 0 0 5px 5px;     /* Retained: Rounded bottom corners for this container */
+    min-height: 60px;
+}
+
+/* --- The rest of your .inquiry-sub-categories styling and .inquiry-form-area styling remains the same --- */
+/* Make sure to keep the existing styles for:
+   .inquiry-sub-categories .sub-category-group
+   .inquiry-sub-categories .sub-category-group .btn
+   .inquiry-sub-categories .sub-category-group .btn:hover
+   .inquiry-sub-categories .sub-category-group .btn.active
+   .inquiry-form-area
+   .inquiry-form-area form
+   ...and all other form element stylings.
+*/
+/* Updated CSS for horizontal sub-category buttons */
+
+.inquiry-sub-categories .sub-category-group {
+    display: flex;             /* Enable flexbox for horizontal arrangement */
+    flex-wrap: wrap;          /* Allow buttons to wrap to the next line if there's not enough space */
+    gap: 8px;                 /* Add some spacing between the buttons */
+    margin-bottom: 10px;      /* Add some space below the button row (optional) */
+}
+
+.inquiry-sub-categories .sub-category-group .btn {
+    /* ... 기존 스타일들 ... */
+    background-color: #ffffff;
+    color: #333333;
+    border: 1px solid #DDDDDD;
+    border-radius: 0;
+    padding: 10px 20px;
+    text-align: center; /* 또는 선호에 따라 'left' */
+    font-weight: normal;
+    font-size: 1.2rem;    /* 추가된 값: 중분류 글자 크기 설정 (대분류보다 작게) */
+    flex-grow: 0;
+    flex-shrink: 1;
+    box-sizing: border-box;
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+    margin: 0;
+}
+
+.inquiry-sub-categories .sub-category-group .btn:hover {
+    background-color: #f8f9fa;
+    color: #333333;
+    border-color: #ced4da;
+}
+
+.inquiry-sub-categories .sub-category-group .btn.active {
+    background-color: #FF6821;
+    color: white;
+    border: 1px solid #FF6821;
+    font-weight: bold;
+    box-shadow: none;
+}
+
+/* Optional: Adjust alignment of the button group within the sub-categories container */
+.inquiry-sub-categories {
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-top: 1px solid #e0e0e0;
+    background-color: #fff;
+    margin-top: 0;
+    border-radius: 0 0 5px 5px;
+    min-height: auto; /* Adjust if needed */
+    /* Add this if you want to control the horizontal alignment of the button group */
+    /* display: flex;
+    justify-content: flex-start; /* or center, flex-end, etc. */
+}

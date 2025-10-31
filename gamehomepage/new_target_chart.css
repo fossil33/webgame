@@ -1,0 +1,202 @@
+/* [추가] chatbot.css의 디자인 변수 가져오기 */
+:root{
+  --bg-0:#0b0f17; --bg-1:#0f1624;
+  --panel:rgba(18,24,38,.72); --panel-strong:rgba(18,24,38,.92);
+  --stroke:rgba(120,200,255,.22); --text:#e6f1ff; --muted:#9fb4cc;
+  --accent:#4fd1ff; --accent2:#9d6bff; --success:#4fe3a3;
+  --danger: #e63946;
+  --font-body: 'Work Sans', sans-serif; /* 기본 폰트 지정 */
+}
+
+/* === 기본 & 배경 스타일 === */
+body {
+    font-family: var(--font-body);
+    background-color: var(--bg-1); 
+    color: var(--text); 
+    line-height: 1.6;
+    overflow-x: hidden;
+    /* [추가] popular_chart.css와 동일한 배경 그라데이션 */
+    background: radial-gradient(1200px 600px at 80% -20%, rgba(79,209,255,.12), transparent),
+                radial-gradient(800px 500px at -20% 30%, rgba(157,107,255,.12), transparent),
+                linear-gradient(180deg, var(--bg-0), var(--bg-1));
+}
+
+/* chatbot.css 배경 효과 */
+.game-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+.game-bg .grid {
+  position:absolute; inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px,transparent 1px);
+  background-size:40px 40px,40px 40px;
+}
+.game-bg .noise {
+  position:absolute; inset:0;
+  background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.035'/></svg>");
+  mix-blend-mode:soft-light;
+}
+
+/* === 히어로 (Hero) === */
+.hero .heading {
+    font-family: var(--font-body);
+    font-size: 3rem;
+    font-weight: 700;
+    text-shadow: 0 0 15px var(--accent); 
+    color: #fff;
+}
+.hero .breadcrumb {
+    font-family: var(--font-body);
+}
+.hero .breadcrumb .breadcrumb-item a {
+    color: var(--accent);
+}
+.hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to top, var(--bg-1) 5%, transparent 100%);
+    z-index: 1;
+}
+
+/* === 공통 .panel 스타일 (chatbot.css 기반) === */
+.panel {
+    border:1px solid var(--stroke);
+    background:var(--panel);
+    border-radius:16px;
+    backdrop-filter:blur(10px);
+    box-shadow:0 0 18px rgba(0,180,255,.2), inset 0 0 12px rgba(0,180,255,.06);
+    overflow: hidden;
+}
+
+
+/* === 메인 콘텐츠 레이아웃 === */
+.content {
+    max-width: 900px;
+    margin: -60px auto 40px auto; 
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    width: 90%;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 2;
+}
+
+/* === 1. 게시글 작성 폼 === */
+.write-form-panel {
+    padding: 2.5rem;
+}
+
+#post-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group label {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--accent);
+}
+
+/* 입력창 (chatbot.css #commentInput 스타일) */
+#title, #content {
+    width: 100%;
+    border:1px solid var(--stroke);
+    border-radius:12px;
+    background:rgba(255,255,255,.02);
+    padding: 12px 14px;
+    font-size: 1rem;
+    color: var(--text);
+    outline: none;
+    font-family: var(--font-body);
+    box-sizing: border-box; /* 패딩 포함 크기 계산 */
+}
+
+#title:focus, #content:focus {
+    box-shadow: 0 0 10px rgba(79,209,255,.3);
+    border-color: var(--accent);
+}
+
+#title::placeholder, #content::placeholder {
+    color: var(--muted);
+}
+
+#content {
+    height: 300px;
+    resize: vertical; /* 세로 크기만 조절 가능 */
+}
+
+/* === 2. 하단 버튼 === */
+.button-container {
+    text-align: center;
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+/* 등록, 취소 버튼 공통 */
+.button-container button {
+    padding: 12px 24px;
+    font-size: 1rem;
+    border-radius:12px;
+    font-weight:600;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+/* 등록 버튼 (보라색 - accent2) */
+button[type="submit"] {
+    border:1px solid rgba(157,107,255,.5); /* accent2 */
+    background:linear-gradient(180deg, rgba(157,107,255,.25), rgba(157,107,255,.08));
+    color:#eaffff;
+}
+button[type="submit"]:hover {
+    box-shadow: 0 0 15px rgba(157,107,255,.4);
+    border-color: rgba(157,107,255,.8);
+}
+
+/* 취소 버튼 (회색 - stroke) */
+.cancel-btn {
+    border:1px solid var(--stroke);
+    background:rgba(255,255,255,.02);
+    color: var(--muted);
+}
+.cancel-btn:hover {
+    background: rgba(255,255,255,.05);
+    color: var(--text);
+    border-color: var(--muted);
+}
+/* === 브레드크럼 중앙 정렬 강제 === */
+.hero .breadcrumb {
+    display: flex; /* Flexbox 레이아웃 사용 */
+    justify-content: center; /* 내부 요소(ol)를 중앙 정렬 */
+    width: 100%; /* 부모 요소 너비만큼 차지 */
+}
+
+/* ol 태그 자체의 정렬 (Bootstrap 클래스가 이미 적용되어 있지만, 명확성을 위해 추가) */
+.hero .breadcrumb .breadcrumb { 
+    display: flex;
+    justify-content: center;
+}

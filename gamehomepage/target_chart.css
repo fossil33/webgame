@@ -1,0 +1,396 @@
+/* [추가] chatbot.css의 디자인 변수 가져오기 */
+:root{
+  --bg-0:#0b0f17; --bg-1:#0f1624;
+  --panel:rgba(18,24,38,.72); --panel-strong:rgba(18,24,38,.92);
+  --stroke:rgba(120,200,255,.22); --text:#e6f1ff; --muted:#9fb4cc;
+  --accent:#4fd1ff; --accent2:#9d6bff; --success:#4fe3a3;
+  --font-body: 'Work Sans', sans-serif; /* 기본 폰트 지정 */
+}
+
+body {
+    font-family: var(--font-body);
+    /* [수정] 다크 모드 배경 (chatbot.css 기반) */
+    background-color: var(--bg-1); 
+    color: var(--text); 
+    line-height: 1.6;
+    overflow-x: hidden;
+    /* [추가] chatbot.css의 배경 빛 효과 */
+    background: radial-gradient(1200px 600px at 80% -20%, rgba(79,209,255,.12), transparent),
+                radial-gradient(800px 500px at -20% 30%, rgba(157,107,255,.12), transparent),
+                linear-gradient(180deg, var(--bg-0), var(--bg-1));
+}
+
+a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+a:hover {
+    color: #fff;
+}
+
+/* [추가] chatbot.css 배경 효과 */
+.game-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0; /* 모든 콘텐츠 뒤에 위치 */
+    pointer-events: none;
+}
+.game-bg .grid {
+  position:absolute; inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px,transparent 1px);
+  background-size:40px 40px,40px 40px;
+}
+.game-bg .noise {
+  position:absolute; inset:0;
+  background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.035'/></svg>");
+  mix-blend-mode:soft-light;
+}
+
+
+/* 히어로 섹션 (Hero Section) - 배경 이미지는 유지 */
+.hero {
+    position: relative;
+    background-size: cover;
+    background-position: center;
+    height: 400px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: #fff;
+}
+
+.hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* [수정] 다크 배경과 자연스럽게 연결 */
+    background: linear-gradient(to top, var(--bg-1) 5%, transparent 100%);
+    z-index: 1;
+}
+
+.hero-text {
+    position: relative;
+    z-index: 2;
+    padding: 1rem;
+}
+
+.hero .heading {
+    font-family: var(--font-body); /* 폰트 통일 */
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    /* [수정] 네온 텍스트 그림자 */
+    text-shadow: 0 0 15px var(--accent); 
+    color: #fff;
+}
+
+.hero .breadcrumb {
+    font-size: 1rem;
+    color: var(--text-color); /* 변수 수정 */
+    font-family: var(--font-body);
+}
+
+.hero .breadcrumb .breadcrumb-item a {
+    color: var(--accent);
+}
+
+/* 메인 콘텐츠 */
+.content {
+    max-width: 1200px;
+    margin: -60px auto 40px auto; 
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 90%;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 2; /* 배경 효과 위에 위치 */
+}
+
+/* [수정] 컨트롤 영역 (chatbot.css의 .panel 스타일 적용) */
+.board-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    
+    /* === chatbot.css .panel 스타일 === */
+    border:1px solid var(--stroke);
+    background:var(--panel);
+    border-radius:16px;
+    backdrop-filter:blur(10px);
+    box-shadow:0 0 18px rgba(0,180,255,.2), inset 0 0 12px rgba(0,180,255,.06);
+    /* ================================== */
+
+    padding: 1.5rem 2rem;
+}
+
+/* [수정] 검색창 (chatbot.css의 .input-container 스타일) */
+.search-container {
+    display: flex;
+    align-items: center;
+    border:1px solid var(--stroke);
+    border-radius:12px;
+    background:rgba(255,255,255,.02);
+    overflow: hidden;
+}
+
+/* [수정] 드롭다운 디자인 수정 */
+.search-select {
+    padding: 10px 35px 10px 15px; /* 화살표를 위한 오른쪽 여백 */
+    font-size: 15px;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    font-family: var(--font-body);
+    border-right: 1px solid var(--stroke);
+    
+    /* 네이티브 스타일 제거 */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+
+    /* 커스텀 화살표 (chatbot.css의 --accent 색상 사용) */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23${encodeURIComponent(var(--accent).slice(1))}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 16px;
+}
+
+/* [추가] 드롭다운 메뉴 항목 (option) 스타일 */
+.search-select option {
+    background: var(--bg-1); /* 챗봇 배경색 */
+    color: var(--text);
+    border: none;
+    padding: 10px;
+}
+
+
+.search-input {
+    padding: 10px 15px;
+    border: none;
+    font-size: 15px;
+    width: 200px;
+    outline: none;
+    background: transparent;
+    color: var(--text);
+    font-family: var(--font-body);
+}
+.search-input::placeholder {
+    color: var(--muted);
+}
+
+/* [수정] 검색 버튼 (chatbot.css의 #send-btn 스타일) */
+.search-button {
+    padding: 10px 15px;
+    border: none;
+    border-left: 1px solid var(--stroke);
+    background:linear-gradient(180deg, rgba(79,209,255,.25), rgba(79,209,255,.08));
+    color:#eaffff;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+/* [수정] 글쓰기 버튼 (chatbot.css의 #send-btn 스타일 - 보라색) */
+.create-button {
+    padding: 12px 24px;
+    font-size: 16px;
+    border:1px solid rgba(157,107,255,.5); /* accent2 */
+    background:linear-gradient(180deg, rgba(157,107,255,.25), rgba(157,107,255,.08));
+    color:#eaffff;
+    border-radius:12px;
+    font-weight:600;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    transition: all 0.2s ease;
+}
+.create-button:hover {
+    box-shadow: 0 0 15px rgba(157,107,255,.4);
+    border-color: rgba(157,107,255,.8);
+}
+
+/* [★추가★] 게시글 리스트 (그리드) */
+.post-list-container {
+    width: 100%;
+    display: grid; 
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+/* [★추가★] 개별 게시글 카드 (chatbot.css의 .panel 스타일 적용) */
+.post-card {
+    /* === chatbot.css .panel 스타일 === */
+    border:1px solid var(--stroke);
+    background:var(--panel);
+    border-radius:16px;
+    backdrop-filter:blur(10px);
+    box-shadow:0 0 18px rgba(0,180,255,.2), inset 0 0 12px rgba(0,180,255,.06);
+    /* ================================== */
+    
+    padding: 1.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.post-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent);
+    box-shadow: 0 8px 25px rgba(79,209,255,.3);
+}
+
+/* [★추가★] 게시글 메인 정보 */
+.post-main {
+    flex-grow: 1;
+}
+
+.post-title {
+    margin: 0 0 0.8rem 0;
+    font-family: var(--font-body);
+    font-size: 1.3rem; 
+    font-weight: 600;
+}
+
+.post-title a {
+    color: var(--text);
+}
+
+.post-title a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.post-meta {
+    font-size: 0.9rem;
+    color: var(--muted); /* 옅은 텍스트 */
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    align-items: center;
+}
+
+.post-meta .meta-divider {
+    color: #555;
+}
+
+/* [★추가★] 게시글 통계 */
+.post-stats {
+    display: flex;
+    justify-content: flex-start; /* 왼쪽 정렬 */
+    gap: 1.5rem;
+    align-items: center;
+    color: var(--muted);
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--stroke); 
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.stat-item .icon-eye,
+.stat-item .icon-chat_bubble_outline { /* 댓글 아이콘 추가 (필요시) */
+    font-size: 1.3rem;
+    color: var(--accent); /* 아이콘 색상 */
+}
+
+.like-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.like-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    font-size: 24px;
+    color: var(--muted); /* 기본 하트 (비활성) */
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.like-button:hover {
+    color: var(--accent); /* 호버 */
+    transform: scale(1.2);
+}
+
+.like-count {
+    font-size: 1.1rem;
+    color: var(--text); /* 숫자 강조 */
+    font-weight: 600;
+}
+
+/* [★추가★] 게시글 없을 때 메시지 */
+.empty-message {
+    text-align: center;
+    color: var(--muted);
+    padding: 4rem;
+    font-size: 1.2rem;
+    /* .panel 스타일 적용 */
+    border:1px solid var(--stroke);
+    background:var(--panel);
+    border-radius:16px;
+    width: 100%;
+    margin-top: 2rem;
+    /* 그리드 컬럼 전체를 차지하도록 설정 */
+    grid-column: 1 / -1; 
+}
+
+/* [★삭제★] 기존 테이블(table, th, td), 오래된 .create-button 스타일 제거 */
+
+
+/* 반응형 조정 */
+@media (max-width: 768px) {
+    .hero .heading {
+        font-size: 2.5rem;
+    }
+    .board-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .search-container {
+        width: 100%;
+    }
+    .create-button {
+        justify-content: center;
+    }
+    .post-list-container {
+        grid-template-columns: 1fr;
+    }
+}
+/* === 브레드크럼 중앙 정렬 강제 === */
+.hero .breadcrumb {
+    display: flex; /* Flexbox 레이아웃 사용 */
+    justify-content: center; /* 내부 요소(ol)를 중앙 정렬 */
+    width: 100%; /* 부모 요소 너비만큼 차지 */
+}
+
+/* ol 태그 자체의 정렬 (Bootstrap 클래스가 이미 적용되어 있지만, 명확성을 위해 추가) */
+.hero .breadcrumb .breadcrumb { 
+    display: flex;
+    justify-content: center;
+}

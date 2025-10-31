@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="author" content="Untree.co">
+    <link rel="shortcut icon" href="LOGO.png">
+
+    <meta name="description" content="" />
+    <meta name="keywords" content="bootstrap, bootstrap5" />
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+
+    <link rel="stylesheet" href="fonts/icomoon/style.css">
+    <link rel="stylesheet" href="fonts/flaticon/font/flaticon.css">
+
+    <link rel="stylesheet" href="css/tiny-slider.css">
+    <link rel="stylesheet" href="css/aos.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="chatbot.css">
+    <link rel="stylesheet" href="To_Be_Continued.css">
+
+	<title>문의사항</title>
+</head>
+<body>
+    <div id="navbar-placeholder"></div>
+	<div class="hero page-inner overlay" style="background-image: url('images/header.jpg');">
+        <div class="container">
+            <div class="row justify-content-center align-items-center">
+                <div class="col-lg-9 text-center mt-5">
+                    <h1 class="heading" data-aos="fade-up">문의사항</h1>
+                    <nav aria-label="breadcrumb" data-aos="fade-up" data-aos-delay="200">
+                        <ol class="breadcrumb text-center justify-content-center">
+                            <li class="breadcrumb-item"><a href="4_main.html">Home</a></li>
+                            <li class="breadcrumb-item active text-white-50" aria-current="page">문의사항</li>
+                        </ol>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+        </div>
+
+    <div class="container inquiry-container mt-5 mb-5">
+        <ul class="nav nav-tabs inquiry-main-categories" id="mainCategories">
+            <li class="nav-item"><a class="nav-link" data-category="id-security" href="#">아이디정보/보안</a></li>
+            <li class="nav-item"><a class="nav-link active" data-category="game-inquiry" href="#">게임 문의</a></li>
+            <li class="nav-item"><a class="nav-link" data-category="event-inquiry" href="#">이벤트 문의</a></li>
+            <li class="nav-item"><a class="nav-link" data-category="recovery" href="#">복구</a></li>
+            <li class="nav-item"><a class="nav-link" data-category="install-run" href="#">실행</a></li>
+        </ul>
+
+        <div class="inquiry-sub-categories mt-0" id="subCategoriesContainer">
+            </div>
+
+        <div class="inquiry-form-area mt-4" id="inquiryFormContainer">
+            </div>
+    </div>
+
+	<div id="footer-placeholder"></div>
+
+    <!-- Preloader -->
+    <div id="overlayer"></div>
+    <div class="loader">
+    	<div class="spinner-border" role="status">
+    		<span class="visually-hidden">Loading...</span>
+    	</div>
+    </div>
+    <script src="js/bootstrap.bundle.min.js"></script>
+    <script src="js/tiny-slider.js"></script>
+    <script src="js/aos.js"></script>
+    <script src="js/navbar.js"></script>
+    <script src="js/counter.js"></script>
+    <script src="js/custom.js"></script>
+	<script src="https://developers.kakao.com/sdk/js/kakao.min.js"></script>
+	<script src="5_recipe.js"></script>
+	<script src="To_Be_Continued.js"></script>
+	<script src="login-check.js"></script>
+	<script>
+    // 닉네임 저장 함수
+    function saveNewNickname() {
+        const newNicknameInput = document.getElementById('nicknameInput');
+        if (!newNicknameInput) return; // nicknameInput이 없는 페이지일 수 있음
+
+        const newNickname = newNicknameInput.value.trim();
+        if (newNickname.length < 2) {
+            alert('닉네임은 2자 이상 입력해야 합니다.');
+            return;
+        }
+        localStorage.setItem('myNickname', newNickname);
+
+        const userNameElement = document.getElementById('user-name');
+        if (userNameElement) {
+            userNameElement.textContent = newNickname;
+        }
+
+        const nicknameEditBox = document.getElementById('nicknameEditBox');
+        if (nicknameEditBox) {
+            nicknameEditBox.style.display = 'none';
+        }
+        alert('닉네임이 변경되었습니다!');
+    }
+
+    // 네비게이션 바 및 푸터의 동적 콘텐츠 초기화 함수
+    function initializePageElements() {
+        // --- 네비게이션 바 로그인 상태 및 이벤트 리스너 초기화 ---
+        const kakaoNickname = localStorage.getItem('kakaoNickname');
+        const myNickname = localStorage.getItem('myNickname') || kakaoNickname;
+
+        const loginMenu = document.getElementById('login-menu');
+        const userNameMenuContainer = document.getElementById('user-name-menu-container');
+        const userNameElement = document.getElementById('user-name');
+        const userInfoButton = document.getElementById('user-info');
+        const logoutButton = document.getElementById('logout');
+        const nicknameEditBox = document.getElementById('nicknameEditBox');
+        const nicknameInput = document.getElementById('nicknameInput');
+
+        if (kakaoNickname) {
+            if (loginMenu) loginMenu.style.display = 'none';
+            if (userNameMenuContainer) userNameMenuContainer.style.display = 'list-item';
+            if (userNameElement) userNameElement.textContent = myNickname || kakaoNickname;
+
+            if (userInfoButton) {
+                userInfoButton.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    if (nicknameEditBox) nicknameEditBox.style.display = 'block';
+                    if (nicknameInput) nicknameInput.value = myNickname || '';
+                });
+            }
+
+            if (logoutButton) {
+                logoutButton.addEventListener('click', function () {
+                    localStorage.removeItem('kakaoNickname');
+                    localStorage.removeItem('myNickname');
+                    if (typeof Kakao !== 'undefined' && Kakao.Auth && Kakao.Auth.logout) {
+                        Kakao.Auth.logout(function () {
+                            location.reload();
+                        });
+                    } else {
+                        console.warn('Kakao SDK not fully loaded or logout function unavailable. Reloading page.');
+                        location.reload();
+                    }
+                });
+            }
+        } else {
+            if (loginMenu) loginMenu.style.display = 'list-item';
+            if (userNameMenuContainer) userNameMenuContainer.style.display = 'none';
+        }
+
+        // --- 네비게이션 바 드롭다운/모바일 메뉴 JS 초기화 (템플릿에 따라) ---
+        if (typeof siteMenuClone === 'function') {
+            siteMenuClone();
+        } else if (window.UntreeCollab && typeof window.UntreeCollab.siteMenuClone === 'function') {
+            window.UntreeCollab.siteMenuClone();
+        }
+
+        // --- 푸터 현재 연도 설정 ---
+        const currentYearSpan = document.getElementById('current-year');
+        if (currentYearSpan) {
+            currentYearSpan.textContent = new Date().getFullYear();
+        }
+
+        // --- AOS 등 기타 라이브러리 재초기화 (필요한 경우) ---
+        if (typeof AOS !== 'undefined') {
+            AOS.refreshHard();
+        }
+    }
+
+    // 페이지 로드 시 nav.html 및 footer.html을 비동기적으로 불러오고, 모두 완료되면 초기화 함수 호출
+    document.addEventListener("DOMContentLoaded", function() {
+        const navPromise = fetch("nav.html")
+            .then(response => {
+                if (!response.ok) throw new Error("Network response was not ok for nav.html: " + response.statusText);
+                return response.text();
+            })
+            .then(data => {
+                const navPlaceholder = document.getElementById("navbar-placeholder");
+                if (navPlaceholder) {
+                    navPlaceholder.innerHTML = data;
+                } else {
+                    console.error("Error: Navbar placeholder element (#navbar-placeholder) not found.");
+                }
+            });
+
+        const footerPromise = fetch("footer.html")
+            .then(response => {
+                if (!response.ok) throw new Error("Network response was not ok for footer.html: " + response.statusText);
+                return response.text();
+            })
+            .then(data => {
+                const footerPlaceholder = document.getElementById("footer-placeholder");
+                if (footerPlaceholder) {
+                    footerPlaceholder.innerHTML = data;
+                } else {
+                    console.error("Error: Footer placeholder element (#footer-placeholder) not found.");
+                }
+            });
+
+        // 네비게이션 바와 푸터 HTML이 모두 로드된 후 초기화 함수 실행
+        Promise.all([navPromise, footerPromise])
+            .then(() => {
+                initializePageElements(); // 네비게이션 바 및 푸터 관련 기능 초기화
+            })
+            .catch(error => console.error('Error loading common page elements (navbar/footer):', error));
+    });
+</script>
+    </body>
+</html>

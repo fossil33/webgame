@@ -1,0 +1,109 @@
+[
+  {
+    "dialogueID": "CHIEF_RUMOR_START",
+    "lines": [
+      {
+        "speakerName": "마을 이장",
+        "sentence": "오, 마침 잘 왔네. 자네에게 부탁할 일이 있네."
+      },
+      {
+        "speakerName": "마을 이장",
+        "sentence": "곧 마을 축제를 열려고 하니, 대장장이와 상점 주인에게 이 소식을 좀 전해주게나."
+      }
+    ]
+  },
+  {
+    "dialogueID": "CHIEF_RUMOR_INPROGRESS",
+    "lines": [
+      {
+        "speakerName": "마을 이장",
+        "sentence": "아직 소식을 다 전하지 못했나? 서둘러주게."
+      }
+    ]
+  },
+  {
+    "dialogueID": "CHIEF_RUMOR_COMPLETE",
+    "lines": [
+      {
+        "speakerName": "마을 이장",
+        "sentence": "모두에게 소식을 전하고 왔군. 정말 고맙네! 이건 내 성의일세."
+      }
+    ]
+  },
+  {
+    "dialogueID": "BLACKSMITH_RUMOR_FIRST",
+    "lines": [
+      {
+        "speakerName": "대장장이",
+        "sentence": "음? 마을 축제라니, 좋은 소식이군! 알려줘서 고맙네."
+      }
+    ]
+  },
+  {
+    "dialogueID": "BLACKSMITH_RUMOR_REPEATED",
+    "lines": [
+      {
+        "speakerName": "대장장이",
+        "sentence": "그래, 축제 소식은 이미 들었네. 기대가 되는군."
+      }
+    ]
+  },
+  {
+    "dialogueID": "MERCHANT_RUMOR_FIRST",
+    "lines": [
+      {
+        "speakerName": "상점 주인",
+        "sentence": "어머, 축제요? 그럼 손님들을 위해 물건을 더 준비해야겠네요. 고마워요!"
+      }
+    ]
+  },
+  {
+    "dialogueID": "MERCHANT_RUMOR_REPEATED",
+    "lines": [
+      {
+        "speakerName": "상점 주인",
+        "sentence": "축제 소식은 잘 들었어요. 덕분에 미리 준비할 수 있겠어요."
+      }
+    ]
+  }
+,
+  {
+    "dialogueID": "CHIEF_DEFAULT",
+    "lines": [
+      {
+        "speakerName": "마을 이장",
+        "sentence": "허허, 마을에 무슨 일이라도 있나?"
+      },
+      {
+        "speakerName": "마을 이장",
+        "sentence": "평화로운 날이군. 자네 덕분일지도 모르지."
+      }
+    ]
+  },
+  {
+    "dialogueID": "BLACKSMITH_DEFAULT",
+    "lines": [
+      {
+        "speakerName": "대장장이",
+        "sentence": "흠, 쓸만한 무기라도 찾나?"
+      },
+      {
+        "speakerName": "대장장이",
+        "sentence": "망치가 식기 전에 용건을 말하게."
+      }
+    ]
+  },
+  {
+    "dialogueID": "MERCHANT_DEFAULT",
+    "lines": [
+      {
+        "speakerName": "상점 주인",
+        "sentence": "어서 오세요! 필요한 물건이라도 있으신가요?"
+      },
+      {
+        "speakerName": "상점 주인",
+        "sentence": "둘러보시고 필요한 게 있으면 말씀하세요."
+      }
+    ]
+  }
+]

@@ -1,0 +1,314 @@
+/* --- 메인 페이지 hero 섹션에 이벤트 슬라이더가 겹치도록 설정 --- */
+.hero {
+    position: relative; /* 자식 요소의 absolute 위치 기준 */
+    /* 기존 hero 섹션의 높이를 이벤트 슬라이더에 맞게 조정하거나, min-height를 설정 */
+    min-height: 500px; /* 이벤트 슬라이더 높이에 맞춰 조정 */
+    display: flex; /* 내부 요소 정렬을 위해 */
+    align-items: center; /* 세로 중앙 정렬 */
+    justify-content: center; /* 가로 중앙 정렬 */
+    z-index: 1; /* 기존 배경 슬라이더 위에 오도록 */
+}
+
+/* 기존 배경 이미지 슬라이더 (hero-slide)는 이벤트 슬라이더 뒤에 깔리도록 z-index 낮춤 */
+.hero .hero-slide {
+    position: absolute; /* hero 섹션을 꽉 채우도록 */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0; /* 이벤트 슬라이더보다 뒤에 */
+}
+
+/* --- 이벤트 히어로 슬라이더를 감싸는 외부 컨테이너 --- */
+.event-hero-slider-container-outer {
+    position: absolute; /* hero 섹션 내에서 절대 위치 */
+    top: 50%; /* hero 섹션의 세로 중앙 */
+    left: 0;
+    width: 100%; /* 전체 너비 사용 */
+    transform: translateY(-50%); /* 정확히 세로 중앙으로 이동 */
+    padding: 0 20px; /* 좌우 여백 (선택 사항) */
+    box-sizing: border-box; /* 패딩이 너비에 포함되도록 */
+    z-index: 5; /* 기존 배경 슬라이더와 다른 요소들 위에 확실히 오도록 */
+}
+
+/* --- 이벤트 히어로 슬라이더 전체 컨테이너 (실제 tiny-slider가 적용되는 부분) --- */
+.event-hero-slider-wrap {
+    position: relative;
+    max-width: 1200px; /* image_26cb25.jpg 처럼 넓게 보이도록 최대 너비 증가 */
+    width: 100%; /* 부모 너비에 맞춤 */
+    margin: 0 auto; /* 가운데 정렬 */
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); /* 그림자 더 강하게 */
+    background-color: rgba(0, 0, 0, 0.4); /* 슬라이더 배경색, 투명도 조절 */
+}
+
+/* --- 각 슬라이드 (내부 요소) --- */
+.event-hero-slide {
+    position: relative;
+    aspect-ratio: 2.8 / 1; /* image_26cb25.jpg와 유사한 비율 (조절 가능) */
+    min-height: 250px; /* 최소 높이 설정 (모바일 등 작은 화면에서 너무 작아지지 않도록) */
+    background-color: #1a1a1a; /* 로딩 전 또는 이미지 없을 때 배경 */
+    display: flex; /* 텍스트 정렬을 위해 flexbox 사용 */
+    align-items: flex-end; /* 텍스트를 아래로 정렬 */
+}
+
+/* 슬라이드 전체를 덮는 링크 */
+.event-hero-slide .slide-link {
+    display: block;
+    width: 100%;
+    height: 100%;
+    text-decoration: none;
+    color: inherit;
+    position: relative; /* 내부 요소 (이미지, 텍스트) 위치 기준 */
+}
+
+/* 슬라이드 배경 이미지 */
+.event-hero-slide .slide-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-size: cover;
+    background-position: center;
+    z-index: 1;
+}
+
+
+
+/* 슬라이드 텍스트 내용 컨테이너 */
+.event-hero-slide .slide-content {
+    position: relative; /* 오버레이보다 위에 */
+    z-index: 3;
+    padding: 30px; /* 텍스트 주변 여백 */
+    color: #ffffff;
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.7); /* 그림자 더 강하게 */
+    width: 100%; /* 부모 너비에 맞춤 */
+    box-sizing: border-box;
+}
+
+/* 슬라이드 제목 */
+.event-hero-slide .slide-title {
+    font-size: clamp(1.8rem, 3.5vw, 2.8rem); /* 폰트 크기 더 크게 */
+    font-weight: 800; /* 더 굵게 */
+    margin: 0 0 10px 0;
+    line-height: 1.1;
+    text-transform: uppercase; /* 대문자로 (image_26cb25.jpg 참고) */
+}
+
+/* 슬라이드 날짜 */
+.event-hero-slide .slide-date {
+    font-size: clamp(1rem, 2vw, 1.4rem); /* 폰트 크기 더 크게 */
+    font-weight: 600;
+    margin: 0;
+    opacity: 0.95;
+    letter-spacing: 0.5px; /* 자간 조절 */
+}
+
+/* --- 로딩/에러 메시지 스타일 --- */
+.event-slide-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    aspect-ratio: 2.8 / 1;
+    min-height: 250px;
+    background-color: #222;
+    color: #aaa;
+    font-size: 1.2rem;
+    border-radius: 12px;
+}
+
+/* --- Tiny Slider 네비게이션/컨트롤 버튼 스타일 --- */
+/* 점 (Nav) */
+.event-hero-slider-wrap .tns-nav {
+    position: absolute;
+    bottom: 20px; /* 아래쪽 여백 증가 */
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex; /* 점들을 가로로 정렬 */
+}
+
+.event-hero-slider-wrap .tns-nav button {
+    padding: 0;
+    margin: 0 6px; /* 점 간격 증가 */
+    width: 12px; /* 점 크기 증가 */
+    height: 12px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.4); /* 반투명 흰색 */
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.event-hero-slider-wrap .tns-nav button.tns-nav-active {
+    background-color: rgba(255, 255, 255, 1); /* 활성 상태 흰색 */
+    transform: scale(1.2); /* 활성 점은 약간 커지게 */
+}
+
+/* 화살표 (Controls) */
+.event-hero-slider-wrap .tns-controls {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    transform: translateY(-50%);
+    display: flex;
+    justify-content: space-between;
+    z-index: 10;
+    padding: 0 15px; /* 좌우 패딩 추가 */
+    pointer-events: none;
+}
+
+.event-hero-slider-wrap .tns-controls button {
+    background-color: rgba(0, 0, 0, 0.5); /* 반투명 검정 배경 더 진하게 */
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 50px; /* 버튼 크기 증가 */
+    height: 50px;
+    font-size: 30px; /* 화살표 크기 증가 */
+    line-height: 50px;
+    text-align: center;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.event-hero-slider-wrap .tns-controls button:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+    transform: scale(1.1);
+}
+
+.event-hero-slider-wrap .tns-controls button:disabled {
+    opacity: 0.3;
+    cursor: default;
+    transform: scale(1);
+}
+
+/* 모바일 화면 (작은 화면) 대응 */
+@media (max-width: 768px) {
+    .event-hero-slider-wrap {
+        border-radius: 0; /* 모바일에서는 꽉 채우도록 */
+        box-shadow: none;
+    }
+    .event-hero-slider-wrap .tns-controls button {
+        width: 40px;
+        height: 40px;
+        font-size: 24px;
+        line-height: 40px;
+    }
+    .event-hero-slider-wrap .tns-nav {
+        bottom: 10px;
+    }
+}
+
+.event-hero-nav-container {
+    background-color: rgba(0, 0, 0, 0.75); /* 어두운 반투명 배경 */
+    padding: 10px 15px;
+    overflow-x: auto; /* 제목이 많을 경우 가로 스크롤 */
+    scrollbar-width: thin; /* 스크롤바 스타일 (Firefox) */
+    scrollbar-color: #555 #222; /* 스크롤바 색상 (Firefox) */
+    position: relative; /* 화살표 위치 기준 */
+}
+/* 스크롤바 스타일 (Chrome, Safari, Edge) */
+.event-hero-nav-container::-webkit-scrollbar {
+    height: 6px;
+}
+.event-hero-nav-container::-webkit-scrollbar-track {
+    background: #222;
+    border-radius: 3px;
+}
+.event-hero-nav-container::-webkit-scrollbar-thumb {
+    background-color: #555;
+    border-radius: 3px;
+}
+/* 네비게이션 제목 목록 */
+.event-nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex; /* 가로 정렬 */
+    gap: 5px; /* 제목 사이 간격 */
+    white-space: nowrap; /* 줄바꿈 방지 */
+    width: max-content; /* 내용물 너비만큼 */
+}
+
+/* 각 네비게이션 아이템 (li) - 특별한 스타일 필요 없을 수 있음 */
+.event-nav-item {
+    display: inline-block; /* flex item */
+}
+
+/* 네비게이션 제목 버튼 */
+.event-nav-button {
+    display: block;
+    padding: 8px 16px; /* 버튼 내부 여백 */
+    background-color: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.7); /* 기본 글자색 (연한 흰색) */
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 6px; /* 살짝 둥글게 */
+    transition: background-color 0.2s ease, color 0.2s ease;
+    white-space: nowrap; /* 제목 줄바꿈 방지 */
+}
+
+/* 네비게이션 버튼 호버 시 */
+.event-nav-button:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* 활성 네비게이션 버튼 (현재 보이는 슬라이드와 연결된 버튼) */
+.event-nav-button.active {
+    background-color: rgba(255, 255, 255, 0.2); /* 약간 밝은 배경 */
+    color: #ffffff; /* 완전 흰색 */
+    font-weight: 700;
+}
+
+/* 키보드 포커스 스타일 */
+.event-nav-button:focus {
+    outline: none; /* 기본 아웃라인 제거 */
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.7); /* 파란색 테두리 효과 */
+}
+
+/* --- (선택) 하단 네비게이션 좌우 화살표 --- */
+.event-hero-nav-controls {
+    display: none; /* 기본 숨김, 필요 시 flex 등으로 보이게 설정 */
+    align-items: center;
+    position: absolute; /* .event-hero-slider-wrap 기준 */
+    top: calc(100% - 40px); /* 네비게이션 영역 세로 중앙쯤 */
+    left: 5px;
+    right: 5px;
+    justify-content: space-between;
+    pointer-events: none; /* 버튼 외 영역 클릭 방지 */
+}
+
+.event-hero-nav-controls button {
+    background-color: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 20px;
+    line-height: 30px;
+    cursor: pointer;
+    pointer-events: auto;
+    transition: background-color 0.2s ease;
+}
+
+.event-hero-nav-controls button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* 만약 Tiny Slider의 기본 컨트롤을 숨기려면 */
+.event-hero-slider-wrap .tns-controls,
+.event-hero-slider-wrap .tns-nav {
+    display: none !important; /* !important 사용 주의 */
+}

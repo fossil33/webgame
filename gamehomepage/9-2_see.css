@@ -1,0 +1,290 @@
+/* [추가] chatbot.css의 디자인 변수 가져오기 */
+:root{
+  --bg-0:#0b0f17; --bg-1:#0f1624;
+  --panel:rgba(18,24,38,.72); --panel-strong:rgba(18,24,38,.92);
+  --stroke:rgba(120,200,255,.22); --text:#e6f1ff; --muted:#9fb4cc;
+  --accent:#4fd1ff; --accent2:#9d6bff; --success:#4fe3a3;
+  --danger: #e63946;
+  --font-body: 'Work Sans', sans-serif; /* 기본 폰트 지정 */
+}
+
+/* === 기본 & 배경 스타일 === */
+body {
+    font-family: var(--font-body);
+    background-color: var(--bg-1); 
+    color: var(--text); 
+    line-height: 1.6;
+    overflow-x: hidden;
+    /* [유지] popular_chart.css와 동일한 배경 그라데이션 */
+    background: radial-gradient(1200px 600px at 80% -20%, rgba(79,209,255,.12), transparent),
+                radial-gradient(800px 500px at -20% 30%, rgba(157,107,255,.12), transparent),
+                linear-gradient(180deg, var(--bg-0), var(--bg-1));
+}
+
+/* chatbot.css 배경 효과 */
+.game-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+.game-bg .grid {
+  position:absolute; inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.03) 1px,transparent 1px);
+  background-size:40px 40px,40px 40px;
+}
+.game-bg .noise {
+  position:absolute; inset:0;
+  background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)' opacity='0.035'/></svg>");
+  mix-blend-mode:soft-light;
+}
+
+/* === 히어로 (Hero) === */
+.hero .heading {
+    font-family: var(--font-body);
+    font-size: 3rem;
+    font-weight: 700;
+    text-shadow: 0 0 15px var(--accent); 
+    color: #fff;
+}
+.hero .breadcrumb {
+    font-family: var(--font-body);
+}
+.hero .breadcrumb .breadcrumb-item a {
+    color: var(--accent);
+}
+
+/* [★추가★] 영웅 이미지 하단 페이드 아웃 효과 (popular_chart.css와 동일하게) */
+.hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to top, var(--bg-1) 5%, transparent 100%);
+    z-index: 1;
+}
+
+/* === 공통 .panel 스타일 (chatbot.css 기반) === */
+.panel {
+    border:1px solid var(--stroke);
+    background:var(--panel);
+    border-radius:16px;
+    backdrop-filter:blur(10px);
+    box-shadow:0 0 18px rgba(0,180,255,.2), inset 0 0 12px rgba(0,180,255,.06);
+    overflow: hidden; /* 내부 요소가 둥근 모서리를 넘지 않도록 */
+}
+
+
+/* === 메인 콘텐츠 레이아웃 === */
+.content {
+    max-width: 900px; /* 게시글은 목록보다 조금 좁게 */
+    margin: -60px auto 40px auto; 
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem; /* 패널 사이의 간격 */
+    width: 90%;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 2; /* .hero::before 보다 위에 오도록 z-index 유지 */
+}
+
+/* === 1. 게시글 본문 패널 === */
+.post-panel {
+    padding: 2rem 2.5rem;
+}
+
+#postTitle {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--accent); /* 제목 강조 */
+    text-shadow: 0 0 10px var(--accent);
+    margin-bottom: 1rem;
+    line-height: 1.3;
+}
+
+.post-meta-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--stroke); /* 구분선 */
+}
+.post-meta-container .meta-divider {
+    color: var(--stroke);
+}
+
+#postContent {
+    font-size: 1.1rem;
+    color: var(--text);
+    line-height: 1.8;
+    white-space: pre-wrap; /* JS 기능 유지 */
+    word-break: break-word; /* 긴 글 자동 줄바꿈 */
+    min-height: 200px; /* 내용이 적을 때 최소 높이 */
+}
+
+/* === 2. 댓글 패널 === */
+#commentSection {
+    padding: 1.5rem 2.5rem;
+}
+
+#commentSection h3 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text);
+    padding-bottom: 1rem;
+    margin: 0;
+    border-bottom: 1px solid var(--stroke);
+}
+
+/* 댓글 입력창 (chatbot.css .input-row 스타일) */
+.comment-input-container {
+    display: flex;
+    gap: 10px;
+    padding: 1rem 0;
+    margin-top: 1rem;
+}
+
+#commentInput {
+    flex-grow: 1;
+    border:1px solid var(--stroke);
+    border-radius:12px;
+    background:rgba(255,255,255,.02);
+    padding: 10px 14px;
+    font-size: 1rem;
+    color: var(--text);
+    outline: none;
+    font-family: var(--font-body);
+}
+#commentInput::placeholder {
+    color: var(--muted);
+}
+
+/* 댓글 등록 버튼 (chatbot.css #send-btn 스타일 - 보라색) */
+#commentButton {
+    flex-shrink: 0;
+    padding: 10px 20px;
+    font-size: 1rem;
+    border:1px solid rgba(157,107,255,.5); /* accent2 */
+    background:linear-gradient(180deg, rgba(157,107,255,.25), rgba(157,107,255,.08));
+    color:#eaffff;
+    border-radius:12px;
+    font-weight:600;
+    cursor:pointer;
+    transition: all 0.2s ease;
+}
+#commentButton:hover {
+    box-shadow: 0 0 15px rgba(157,107,255,.4);
+    border-color: rgba(157,107,255,.8);
+}
+
+/* 댓글 목록 */
+#commentList {
+    width: 100%;
+    margin-top: 1rem;
+    padding-top: 10px;
+}
+
+.comment {
+    border-bottom: 1px solid var(--stroke);
+    padding: 1.25rem 0;
+    color: var(--text);
+}
+.comment:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+/* [★추가★] 댓글 헤더 (작성자 + 시간) */
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.comment-author { /* (h4 태그) */
+    margin: 0;
+    font-size: 1rem;
+    color: var(--accent); /* 작성자 강조 */
+    font-weight: 600;
+}
+
+.comment-date {
+    font-size: 0.85rem;
+    color: var(--muted);
+    flex-shrink: 0;
+    margin-left: 1rem;
+}
+
+.comment-content { /* (p 태그) */
+    margin: 0;
+    font-size: 1rem;
+    color: var(--text);
+    line-height: 1.6;
+    word-break: break-word;
+}
+
+/* 댓글 없을 때 메시지 스타일 */
+.empty-comment, .error-message {
+    text-align: center;
+    color: var(--muted);
+    padding: 2rem;
+    font-size: 1.1rem;
+    border:1px solid rgba(120,200,255,.1); /* 약한 stroke */
+    background:rgba(18,24,38,.4); /* 약한 panel */
+    border-radius:12px;
+    margin-top: 1rem;
+}
+
+
+/* === 3. 하단 버튼 === */
+.button-container {
+    text-align: center;
+    margin-top: 1rem;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+/* 목록, 삭제 버튼 공통 (create-button 기반) */
+.button-container button {
+    padding: 12px 24px;
+    font-size: 1rem;
+    border-radius:12px;
+    font-weight:600;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    transition: all 0.2s ease;
+}
+
+/* 목록으로 버튼 (파란색) */
+#listBtn {
+    border:1px solid rgba(79,209,255,.5);
+    background:linear-gradient(180deg, rgba(79,209,255,.25), rgba(79,209,255,.08));
+    color:#eaffff;
+}
+#listBtn:hover {
+    box-shadow: 0 0 15px rgba(79,209,255,.4);
+    border-color: rgba(79,209,255,.8);
+}
+
+/* 삭제하기 버튼 (붉은색) */
+#deleteBtn {
+    border:1px solid rgba(230, 57, 70, .5); /* danger */
+    background:linear-gradient(180deg, rgba(230, 57, 70, .25), rgba(230, 57, 70, .08));
+    color:#ffeaef;
+}
+#deleteBtn:hover {
+    box-shadow: 0 0 15px rgba(230, 57, 70, .4);
+    border-color: rgba(230, 57, 70, .8);
+}
