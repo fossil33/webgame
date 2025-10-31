@@ -116,7 +116,7 @@ io.on('connection', (socket) => {
     socket.on('initialize', async (userId) => { 
         console.log(`[Game] Initializing player: ${userId} for socket ${socket.id}`);
         socketIdToUserId.set(socket.id, userId);
-        const sql = `SELECT position_x, position_y, position_z, rotation_y FROM Characters WHERE user_id = ?`;
+        const sql = `SELECT position_x, position_y, position_z, rotation_y FROM characters WHERE user_id = ?`;
         try {
             const [results] = await dbPool.query(sql, [userId]); 
             let playerData;
@@ -205,13 +205,13 @@ app.post('/auth/kakao', async (req, res) => {
         const userSql = `INSERT INTO users (user_id, nickname, email, profile_image) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE nickname = VALUES(nickname), email = VALUES(email), profile_image = VALUES(profile_image)`;
         await connection.query(userSql, [id, nickname, email, profile_image]);
 
-        const [characters] = await connection.query(`SELECT character_id FROM Characters WHERE user_id = ?`, [id]);
+        const [characters] = await connection.query(`SELECT character_id FROM characters WHERE user_id = ?`, [id]);
 
         if (characters.length === 0) {
-            const [characterResult] = await connection.query(`INSERT INTO Characters (user_id, character_name) VALUES (?, ?)`, [id, nickname]);
+            const [characterResult] = await connection.query(`INSERT INTO characters (user_id, character_name) VALUES (?, ?)`, [id, nickname]);
             const newCharacterId = characterResult.insertId;
-            await connection.query(`INSERT INTO Characterstats (character_id) VALUES (?)`, [newCharacterId]);
-            await connection.query(`INSERT INTO Inventory (character_id, inventory_slot, item_id) VALUES (?, 1, 101)`, [newCharacterId]);
+            await connection.query(`INSERT INTO characterstats (character_id) VALUES (?)`, [newCharacterId]);
+            await connection.query(`INSERT INTO inventory (character_id, inventory_slot, item_id) VALUES (?, 1, 101)`, [newCharacterId]);
         }
 
         await connection.commit();
@@ -235,9 +235,9 @@ app.post('/api/posts', async (req, res) => {
     const { title, content, board_type, userId } = req.body;
     if (!title || !content || !board_type || !userId) return res.status(400).json({ message: '필수 항목이 누락되었습니다.' });
     try {
-        const [characters] = await dbPool.query(`SELECT character_id FROM Characters WHERE user_id = ? ORDER BY created_at ASC LIMIT 1`, [userId]); 
+        const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? ORDER BY created_at ASC LIMIT 1`, [userId]); 
         const author_character_id = (characters.length > 0) ? characters[0].character_id : null;
-        const [results] = await dbPool.query(`INSERT INTO Posts (title, content, board_type, author_character_id, author_user_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())`, 
+        const [results] = await dbPool.query(`INSERT INTO posts (title, content, board_type, author_character_id, author_user_id, created_at) VALUES (?, ?, ?, ?, ?, NOW())`, 
             [title, content, board_type, author_character_id, userId]);
         res.status(201).json({ message: '게시글이 성공적으로 등록되었습니다.', postId: results.insertId });
     } catch (err) {
@@ -256,7 +256,7 @@ app.get('/api/posts', async (req, res) => {
             DATE_FORMAT(DATE_ADD(p.created_at, INTERVAL 9 HOUR), '%Y-%m-%d %H:%i') as date,
             p.view_count, p.like_count, p.comments_count,
             CASE WHEN ? IS NOT NULL THEN (SELECT COUNT(*) FROM like_user lu WHERE lu.post_id = p.post_id AND lu.user_id = ?) > 0 ELSE 0 END AS userHasLiked
-        FROM Posts p
+        FROM posts p
         LEFT JOIN users u ON p.author_user_id = u.user_id
         WHERE p.board_type = ? AND (p.is_deleted IS NULL OR p.is_deleted = false)
     `;
@@ -285,7 +285,7 @@ app.get('/api/posts/:id', async (req, res) => {
     let connection;
     try {
         connection = await dbPool.getConnection(); 
-        await connection.query(`UPDATE Posts SET view_count = view_count + 1 WHERE post_id = ?`, [postId]);
+        await connection.query(`UPDATE posts SET view_count = view_count + 1 WHERE post_id = ?`, [postId]);
         const sql = `
           SELECT
             p.post_id, p.title, p.content, u.nickname as author_name,
@@ -293,7 +293,7 @@ app.get('/api/posts/:id', async (req, res) => {
             p.like_count, p.view_count, p.comments_count, p.author_user_id, p.board_type,
             CASE WHEN p.board_type = 'event' AND NOW() > p.event_end_date THEN 'ended' ELSE 'ongoing' END AS status,
             CASE WHEN p.board_type = 'event' AND NOW() > p.event_end_date THEN '종료' ELSE '진행중' END AS badgeText
-          FROM Posts p
+          FROM posts p
           LEFT JOIN users u ON p.author_user_id = u.user_id
           WHERE p.post_id = ? AND (p.is_deleted IS NULL OR p.is_deleted = false)
         `;
@@ -326,8 +326,8 @@ app.get('/api/events', async (req, res) => {
       p.event_start_date, p.event_end_date,
       CASE WHEN ${statusExpr} THEN 'ongoing' ELSE 'ended' END AS status,
       COALESCE(u.nickname, c.character_name, 'GM') AS author
-    FROM Posts p
-    LEFT JOIN Characters c ON p.author_character_id = c.character_id
+    FROM posts p
+    LEFT JOIN characters c ON p.author_character_id = c.character_id
     LEFT JOIN users u ON p.author_user_id = u.user_id
     ${where}
     ORDER BY p.created_at DESC LIMIT 200;
@@ -350,8 +350,8 @@ app.get('/api/events/:id', async (req, res) => {
       p.event_start_date, p.event_end_date,
       CASE WHEN ((p.event_start_date IS NULL OR p.event_start_date <= NOW()) AND (p.event_end_date IS NULL OR p.event_end_date >= NOW())) THEN 'ongoing' ELSE 'ended' END AS status,
       COALESCE(u.nickname, c.character_name, 'GM') AS author
-    FROM Posts p
-    LEFT JOIN Characters c ON p.author_character_id = c.character_id
+    FROM posts p
+    LEFT JOIN characters c ON p.author_character_id = c.character_id
     LEFT JOIN users u ON p.author_user_id = u.user_id
     WHERE p.board_type IN ('event','이벤트') AND p.post_id = ?;
   `;
@@ -377,14 +377,14 @@ app.post('/api/like', async (req, res) => {
         let liked = false;
         if (results.length > 0) {
             await connection.query('DELETE FROM like_user WHERE user_id = ? AND post_id = ?', [user_id, post_id]);
-            await connection.query('UPDATE Posts SET like_count = GREATEST(0, like_count - 1) WHERE post_id = ?', [post_id]);
+            await connection.query('UPDATE posts SET like_count = GREATEST(0, like_count - 1) WHERE post_id = ?', [post_id]);
             liked = false;
         } else {
             await connection.query('INSERT INTO like_user (user_id, post_id) VALUES (?, ?)', [user_id, post_id]);
-            await connection.query('UPDATE Posts SET like_count = like_count + 1 WHERE post_id = ?', [post_id]);
+            await connection.query('UPDATE posts SET like_count = like_count + 1 WHERE post_id = ?', [post_id]);
             liked = true;
         }
-        const [countResult] = await connection.query('SELECT like_count FROM Posts WHERE post_id = ?', [post_id]);
+        const [countResult] = await connection.query('SELECT like_count FROM posts WHERE post_id = ?', [post_id]);
         await connection.commit();
         res.json({ message: liked ? '좋아요가 반영되었습니다.' : '좋아요가 취소되었습니다.', liked: liked, newLikeCount: countResult[0]?.like_count ?? 0 });
     } catch (err) {
@@ -423,10 +423,10 @@ app.post('/api/comments', async (req, res) => {
     try {
         connection = await dbPool.getConnection();
         await connection.beginTransaction();
-        const [characters] = await connection.query(`SELECT character_id FROM Characters WHERE user_id = ? ORDER BY created_at ASC LIMIT 1`, [userId]);
+        const [characters] = await connection.query(`SELECT character_id FROM characters WHERE user_id = ? ORDER BY created_at ASC LIMIT 1`, [userId]);
         const author_character_id = (characters.length > 0) ? characters[0].character_id : null;
         await connection.query(`INSERT INTO comments (post_id, author_character_id, author_user_id, content, created_at) VALUES (?, ?, ?, ?, NOW())`, [post_id, author_character_id, userId, content]);
-        await connection.query(`UPDATE Posts SET comments_count = comments_count + 1 WHERE post_id = ?`, [post_id]);
+        await connection.query(`UPDATE posts SET comments_count = comments_count + 1 WHERE post_id = ?`, [post_id]);
         await connection.commit();
         res.status(201).json({ message: '댓글이 등록되었습니다.' });
     } catch (err) {
@@ -459,7 +459,7 @@ app.delete('/api/comments/:id', async (req, res) => {
         if (updateResult.affectedRows === 0) {
             await connection.rollback(); return res.status(404).json({ message: '삭제할 댓글을 찾지 못했습니다.' });
         }
-        await connection.query(`UPDATE Posts SET comments_count = GREATEST(0, comments_count - 1) WHERE post_id = ?`, [comment.post_id]);
+        await connection.query(`UPDATE posts SET comments_count = GREATEST(0, comments_count - 1) WHERE post_id = ?`, [comment.post_id]);
         await connection.commit();
         res.json({ message: '댓글이 성공적으로 삭제되었습니다.' });
     } catch (err) {
@@ -473,7 +473,7 @@ app.delete('/api/comments/:id', async (req, res) => {
 
 // 인기 게시글 조회
 app.get('/api/popular-posts', async (req, res) => {
-    const sql = `SELECT post_id as id, title, like_count, comments_count, board_type, DATE_FORMAT(DATE_ADD(created_at, INTERVAL 9 HOUR), '%Y-%m-%d %H:%i') as date FROM Posts WHERE board_type = 'popular' AND (is_deleted IS NULL OR is_deleted = false) ORDER BY like_count DESC, comments_count DESC, created_at DESC LIMIT 5`;
+    const sql = `SELECT post_id as id, title, like_count, comments_count, board_type, DATE_FORMAT(DATE_ADD(created_at, INTERVAL 9 HOUR), '%Y-%m-%d %H:%i') as date FROM posts WHERE board_type = 'popular' AND (is_deleted IS NULL OR is_deleted = false) ORDER BY like_count DESC, comments_count DESC, created_at DESC LIMIT 5`;
     try {
         const [results] = await dbPool.query(sql); 
         res.json(results);
@@ -485,7 +485,7 @@ app.get('/api/popular-posts', async (req, res) => {
 
 // 공략 게시글 조회
 app.get('/api/target-posts', async (req, res) => {
-    const sql = `SELECT post_id as id, title, like_count, comments_count, board_type, DATE_FORMAT(DATE_ADD(created_at, INTERVAL 9 HOUR), '%Y-%m-%d %H:%i') as date FROM Posts WHERE board_type = 'target' AND (is_deleted IS NULL OR is_deleted = false) ORDER BY like_count DESC, comments_count DESC, created_at DESC LIMIT 5`;
+    const sql = `SELECT post_id as id, title, like_count, comments_count, board_type, DATE_FORMAT(DATE_ADD(created_at, INTERVAL 9 HOUR), '%Y-%m-%d %H:%i') as date FROM posts WHERE board_type = 'target' AND (is_deleted IS NULL OR is_deleted = false) ORDER BY like_count DESC, comments_count DESC, created_at DESC LIMIT 5`;
     try {
         const [results] = await dbPool.query(sql);
         res.json(results);
@@ -501,8 +501,8 @@ app.get('/api/rankings', async (req, res) => {
     if (!type) return res.status(400).json({ message: '랭킹 타입을 지정해주세요.' });
     const sql = `
         SELECT r.rank, r.ranking_value, COALESCE(c.character_name, u.nickname) as name
-        FROM Rankings r
-        LEFT JOIN Characters c ON r.character_id = c.character_id
+        FROM rankings r
+        LEFT JOIN characters c ON r.character_id = c.character_id
         LEFT JOIN users u ON c.user_id = u.user_id
         WHERE r.ranking_type = ? ORDER BY r.rank ASC LIMIT 10
     `;
@@ -521,10 +521,10 @@ app.delete('/api/posts/:id', async (req, res) => {
     const { userId } = req.query;
     if (!userId) return res.status(401).json({ message: '로그인이 필요합니다.' });
     try {
-        const [posts] = await dbPool.query(`SELECT author_user_id FROM Posts WHERE post_id = ? AND (is_deleted IS NULL OR is_deleted = false)`, [postId]); 
+        const [posts] = await dbPool.query(`SELECT author_user_id FROM posts WHERE post_id = ? AND (is_deleted IS NULL OR is_deleted = false)`, [postId]); 
         if (posts.length === 0) return res.status(404).json({ message: '게시글을 찾을 수 없습니다.' });
         if (String(posts[0].author_user_id) !== String(userId)) return res.status(403).json({ message: '게시물을 삭제할 권한이 없습니다.' });
-        const [result] = await dbPool.query(`UPDATE Posts SET is_deleted = true WHERE post_id = ?`, [postId]); 
+        const [result] = await dbPool.query(`UPDATE posts SET is_deleted = true WHERE post_id = ?`, [postId]); 
         if (result.affectedRows === 0) return res.status(404).json({ message: '삭제할 게시물을 찾지 못했습니다.' });
         res.json({ message: '게시물이 성공적으로 삭제되었습니다.' });
     } catch (err) {
@@ -536,20 +536,20 @@ app.delete('/api/posts/:id', async (req, res) => {
 // 인벤토리 조회
 app.get('/playerData/inventory/:userId', async (req, res) => { 
     const { userId } = req.params;
-    console.log(`[Inventory Check] 1. userId: ${userId}`);
+    console.log(`[inventory Check] 1. userId: ${userId}`);
     try {
-        const [characters] = await dbPool.query(`SELECT character_id FROM Characters WHERE user_id = ? LIMIT 1`, [userId]); 
+        const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]); 
         if (characters.length === 0) return res.status(404).json({ message: '캐릭터를 찾을 수 없습니다.' });
         const characterId = characters[0].character_id;
-        console.log(`[Inventory Check] 2. characterId: ${characterId}`);
-        const invSql = `SELECT inv.inventory_slot AS slotIndex, COALESCE(i.item_type, 0) AS slotType, inv.item_id AS itemId, inv.quantity AS itemCount FROM Inventory inv LEFT JOIN Items i ON inv.item_id = i.item_id WHERE inv.character_id = ? AND inv.item_id IS NOT NULL AND inv.item_id != 0 ORDER BY inv.inventory_slot ASC`;
+        console.log(`[inventory Check] 2. characterId: ${characterId}`);
+        const invSql = `SELECT inv.inventory_slot AS slotIndex, COALESCE(i.item_type, 0) AS slotType, inv.item_id AS itemId, inv.quantity AS itemCount FROM inventory inv LEFT JOIN Items i ON inv.item_id = i.item_id WHERE inv.character_id = ? AND inv.item_id IS NOT NULL AND inv.item_id != 0 ORDER BY inv.inventory_slot ASC`;
         const [results] = await dbPool.query(invSql, [characterId]); 
-        console.log(`[Inventory Check] 3. ${results.length} items found.`);
+        console.log(`[inventory Check] 3. ${results.length} items found.`);
         const inventory = results.map(item => ({ ...item, itemSpec: {} }));
-        console.log('[Inventory Check] 4. Response data:', { inventory: inventory });
+        console.log('[inventory Check] 4. Response data:', { inventory: inventory });
         res.json({ inventory: inventory });
     } catch (err) {
-        console.error('[Inventory Check] 3. DB Error:', err);
+        console.error('[inventory Check] 3. DB Error:', err);
         res.status(500).json({ message: '서버 오류' });
     }
 });
@@ -559,19 +559,19 @@ app.post('/playerData/inventory/:userId', async (req, res) => {
     const { userId } = req.params;
     const slotData = req.body;
     try {
-        const [characters] = await dbPool.query(`SELECT character_id FROM Characters WHERE user_id = ? LIMIT 1`, [userId]); 
+        const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]); 
         if (characters.length === 0) return res.status(404).json({ message: '캐릭터를 찾을 수 없습니다.' });
         const characterId = characters[0].character_id;
         if (slotData.hasItem === false) {
-            await dbPool.query('DELETE FROM Inventory WHERE character_id = ? AND inventory_slot = ?', [characterId, slotData.slotIndex]); 
+            await dbPool.query('DELETE FROM inventory WHERE character_id = ? AND inventory_slot = ?', [characterId, slotData.slotIndex]); 
             res.status(200).json({ success: true, message: '인벤토리 슬롯 초기화 성공' });
         } else {
-            const upsertSql = `INSERT INTO Inventory (character_id, inventory_slot, item_id, quantity) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE item_id = VALUES(item_id), quantity = VALUES(quantity)`;
+            const upsertSql = `INSERT INTO inventory (character_id, inventory_slot, item_id, quantity) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE item_id = VALUES(item_id), quantity = VALUES(quantity)`;
             await dbPool.query(upsertSql, [characterId, slotData.slotIndex, slotData.itemId, slotData.itemCount]); 
             res.status(201).json({ success: true, message: '인벤토리 업데이트 성공' });
         }
     } catch (err) {
-        console.error('Inventory save error:', err);
+        console.error('inventory save error:', err);
         res.status(500).json({ success: false, message: 'DB 오류' });
     }
 });
@@ -580,7 +580,7 @@ app.post('/playerData/inventory/:userId', async (req, res) => {
 // 전체 판매 목록
 app.get('/market/items', async (req, res) => {
     console.log("[GET] 전체 판매 목록 조회 요청");
-    const sql = `SELECT listing_id AS marketId, item_id AS ItemId, quantity AS ItemCount, price FROM MarketListings WHERE expires_at > NOW() ORDER BY listed_at DESC;`;
+    const sql = `SELECT listing_id AS marketId, item_id AS ItemId, quantity AS ItemCount, price FROM marketlistings WHERE expires_at > NOW() ORDER BY listed_at DESC;`;
     try {
         const [results] = await dbPool.query(sql); 
         res.json(results);
@@ -594,10 +594,10 @@ app.get('/market/items/:userId', async (req, res) => {
     const { userId } = req.params;
     console.log(`[GET] ${userId}의 판매 목록 조회 요청`);
     try {
-        const [characters] = await dbPool.query(`SELECT character_id FROM Characters WHERE user_id = ? LIMIT 1`, [userId]); 
+        const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]); 
         if (characters.length === 0) return res.status(404).json({ message: '캐릭터를 찾을 수 없습니다.' });
         const characterId = characters[0].character_id;
-        const sql = `SELECT listing_id AS marketId, item_id AS ItemId, quantity AS ItemCount, price FROM MarketListings WHERE seller_character_id = ? AND expires_at > NOW() ORDER BY listed_at DESC;`;
+        const sql = `SELECT listing_id AS marketId, item_id AS ItemId, quantity AS ItemCount, price FROM marketlistings WHERE seller_character_id = ? AND expires_at > NOW() ORDER BY listed_at DESC;`;
         const [results] = await dbPool.query(sql, [characterId]); 
         res.json(results);
     } catch (err) {
@@ -612,10 +612,10 @@ app.post('/market/items', async (req, res) => {
     console.log(`[POST] ${userId} 판매 등록 요청`);
     const itemSpecJson = JSON.stringify(ItemData);
     try {
-        const [characters] = await dbPool.query(`SELECT character_id FROM Characters WHERE user_id = ? LIMIT 1`, [userId]);
+        const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]);
         if (characters.length === 0) return res.status(404).json({ success: false, message: '캐릭터를 찾을 수 없습니다.' });
         const seller_character_id = characters[0].character_id;
-        const addItemSql = 'INSERT INTO MarketListings (seller_character_id, item_id, quantity, price, item_spec, listed_at, expires_at) VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 DAY))';
+        const addItemSql = 'INSERT INTO marketlistings (seller_character_id, item_id, quantity, price, item_spec, listed_at, expires_at) VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 DAY))';
         const [result] = await dbPool.query(addItemSql, [seller_character_id, ItemId, itemCount, price, itemSpecJson]); 
         res.status(200).json({ success: true, message: '아이템 등록 성공!', marketId: result.insertId, ItemCount: parseInt(itemCount, 10), price: parseInt(price, 10) });
     } catch (err) {
@@ -632,24 +632,24 @@ app.get('/market/buy', async (req, res) => {
     try {
         connection = await dbPool.getConnection();
         await connection.beginTransaction();
-        const [characters] = await connection.query(`SELECT character_id FROM Characters WHERE user_id = ? LIMIT 1`, [userId]);
+        const [characters] = await connection.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]);
         if (characters.length === 0) throw new Error('구매자 캐릭터 없음');
         const buyer_character_id = characters[0].character_id;
-        const [listings] = await connection.query('SELECT * FROM MarketListings WHERE listing_id = ? FOR UPDATE', [marketId]);
+        const [listings] = await connection.query('SELECT * FROM marketlistings WHERE listing_id = ? FOR UPDATE', [marketId]);
         if (listings.length === 0) throw new Error('판매 물품 없음');
         const listing = listings[0];
         const { seller_character_id, item_id, quantity, price, item_spec } = listing;
         if (quantity < purchaseCount) throw new Error('아이템 개수 부족');
         const totalPrice = price * purchaseCount;
-        const [payResult] = await connection.query('UPDATE Characters SET gold = gold - ? WHERE character_id = ? AND gold >= ?', [totalPrice, buyer_character_id, totalPrice]);
+        const [payResult] = await connection.query('UPDATE characters SET gold = gold - ? WHERE character_id = ? AND gold >= ?', [totalPrice, buyer_character_id, totalPrice]);
         if (payResult.affectedRows === 0) throw new Error('골드 부족');
-        await connection.query('UPDATE Characters SET gold = gold + ? WHERE character_id = ?', [totalPrice, seller_character_id]);
-        await connection.query('UPDATE MarketListings SET quantity = quantity - ? WHERE listing_id = ?', [purchaseCount, marketId]);
-        await connection.query('DELETE FROM MarketListings WHERE listing_id = ? AND quantity <= 0', [marketId]);
+        await connection.query('UPDATE characters SET gold = gold + ? WHERE character_id = ?', [totalPrice, seller_character_id]);
+        await connection.query('UPDATE marketlistings SET quantity = quantity - ? WHERE listing_id = ?', [purchaseCount, marketId]);
+        await connection.query('DELETE FROM marketlistings WHERE listing_id = ? AND quantity <= 0', [marketId]);
         await connection.commit();
 
         // 최종 골드 조회
-        const [goldResults] = await dbPool.query(`SELECT character_id, gold FROM Characters WHERE character_id IN (?, ?)`, [buyer_character_id, seller_character_id]);
+        const [goldResults] = await dbPool.query(`SELECT character_id, gold FROM characters WHERE character_id IN (?, ?)`, [buyer_character_id, seller_character_id]);
         const buyerGold = goldResults.find(r => r.character_id === buyer_character_id)?.gold;
         const sellerGold = goldResults.find(r => r.character_id === seller_character_id)?.gold;
         const remainingItemCount = quantity - purchaseCount;
@@ -670,12 +670,12 @@ app.delete('/market/items/:userId/:marketId', async (req, res) => {
     const listingId = Number(marketId);
     if (!Number.isInteger(listingId)) return res.status(400).json({ success: false, message: '잘못된 marketId 형식입니다.' });
     try {
-        const findSql = `SELECT ml.listing_id, ml.item_id, ml.quantity, ml.price, ml.item_spec, c.user_id FROM MarketListings ml JOIN Characters c ON ml.seller_character_id = c.character_id WHERE ml.listing_id = ?`;
+        const findSql = `SELECT ml.listing_id, ml.item_id, ml.quantity, ml.price, ml.item_spec, c.user_id FROM marketlistings ml JOIN characters c ON ml.seller_character_id = c.character_id WHERE ml.listing_id = ?`;
         const [rows] = await dbPool.query(findSql, [listingId]);
         if (rows.length === 0) return res.status(404).json({ success: false, message: '해당 마켓 아이템을 찾을 수 없습니다.' });
         const row = rows[0];
         if (String(row.user_id) !== String(userId)) return res.status(403).json({ success: false, message: '아이템을 삭제할 권한이 없습니다.' });
-        await dbPool.query('DELETE FROM MarketListings WHERE listing_id = ?', [listingId]); 
+        await dbPool.query('DELETE FROM marketlistings WHERE listing_id = ?', [listingId]); 
         return res.status(200).json({ success: true, message: '아이템 등록이 취소되었습니다.', marketId: listingId, ItemId: row.item_id, ItemCount: row.quantity, price: row.price, spec: safeJSON(row.item_spec) });
     } catch (err) {
         console.error('Market item deletion error:', err);
@@ -687,7 +687,7 @@ app.delete('/market/items/:userId/:marketId', async (req, res) => {
 app.get('/playerData/:userId', async (req, res) => { 
     const { userId } = req.params;
     console.log(`[GET] ${userId} 플레이어 데이터 요청`);
-    const playerDataQuery = `SELECT u.user_id as id, u.nickname, c.level, c.gold, c.position_x, c.position_y, c.position_z, c.rotation_y, cs.currentHp, cs.maxHp, cs.experience AS exp, cs.speed, cs.defense, cs.damage FROM users u LEFT JOIN Characters c ON u.user_id = c.user_id LEFT JOIN Characterstats cs ON c.character_id = cs.character_id WHERE u.user_id = ? LIMIT 1;`;
+    const playerDataQuery = `SELECT u.user_id as id, u.nickname, c.level, c.gold, c.position_x, c.position_y, c.position_z, c.rotation_y, cs.currentHp, cs.maxHp, cs.experience AS exp, cs.speed, cs.defense, cs.damage FROM users u LEFT JOIN characters c ON u.user_id = c.user_id LEFT JOIN characterstats cs ON c.character_id = cs.character_id WHERE u.user_id = ? LIMIT 1;`;
     try {
         const [results] = await dbPool.query(playerDataQuery, [userId]); 
         if (results.length === 0) return res.status(404).send('플레이어 정보를 찾을 수 없습니다.');
@@ -715,12 +715,12 @@ app.post('/playerData/:userId', async (req, res) => {
     try {
         connection = await dbPool.getConnection();
         await connection.beginTransaction();
-        const [characters] = await connection.query(`SELECT character_id FROM Characters WHERE user_id = ?`, [userId]);
+        const [characters] = await connection.query(`SELECT character_id FROM characters WHERE user_id = ?`, [userId]);
         if (characters.length === 0) throw new Error('캐릭터 없음');
         const characterId = characters[0].character_id;
-        const updateCharacterSql = `UPDATE Characters SET level = ?, gold = ?, position_x = ?, position_y = ?, position_z = ?, rotation_y = ? WHERE character_id = ?`;
+        const updateCharacterSql = `UPDATE characters SET level = ?, gold = ?, position_x = ?, position_y = ?, position_z = ?, rotation_y = ? WHERE character_id = ?`;
         await connection.query(updateCharacterSql, [finalPlayerData.level, finalPlayerData.gold, finalPlayerData.position.x, finalPlayerData.position.y, finalPlayerData.position.z, finalPlayerData.rotation.y, characterId]);
-        const updateStatsSql = `UPDATE Characterstats SET currentHp = ?, maxHp = ?, experience = ?, speed = ?, defense = ?, damage = ? WHERE character_id = ?`;
+        const updateStatsSql = `UPDATE characterstats SET currentHp = ?, maxHp = ?, experience = ?, speed = ?, defense = ?, damage = ? WHERE character_id = ?`;
         await connection.query(updateStatsSql, [finalPlayerData.currentHp, finalPlayerData.maxHp, finalPlayerData.exp, finalPlayerData.speed, finalPlayerData.defense, finalPlayerData.damage, characterId]);
         await connection.commit();
         console.log(`[POST] ${userId} 데이터 저장 완료`);
@@ -745,7 +745,7 @@ app.get('/quest/:userId', async (req, res) => {
     console.log(`[GET /quest] ${userId}의 퀘스트 데이터 요청함.`);
 
     try {
-        const [characters] = await dbPool.query(`SELECT character_id FROM Characters WHERE user_id = ? LIMIT 1`, [userId]);
+        const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]);
         
         if (characters.length === 0) {
             console.warn(`[GET /quest] ${userId}에 해당하는 캐릭터를 찾을 수 없음.`);
@@ -755,7 +755,7 @@ app.get('/quest/:userId', async (req, res) => {
         const characterId = characters[0].character_id;
 
         // 해당 캐릭터의 퀘스트 진행도 조회
-        const getProgressSql = `SELECT quest_id AS questId, current_progress_data FROM QuestProgress WHERE character_id = ?`;
+        const getProgressSql = `SELECT quest_id AS questId, current_progress_data FROM questprogress WHERE character_id = ?`;
         const [results] = await dbPool.query(getProgressSql, [characterId]);
 
         // DB 결과를 JSON 객체 배열로 파싱
@@ -794,7 +794,7 @@ app.get('/quest/:userId', async (req, res) => {
 
     } catch (err) {
         console.error(`[GET /quest] DB 오류 (UserId: ${userId}):`, err);
-        res.status(500).json({ message: 'DB 오류 (QuestProgress)' });
+        res.status(500).json({ message: 'DB 오류 (questprogress)' });
     }
 });
 
@@ -804,7 +804,7 @@ app.post('/quest/:userId', async (req, res) => {
     console.log(`[POST] ${userId} 퀘스트 진행도 저장 요청`, questStatus);
     if (typeof questStatus.questId === 'undefined') return res.status(200).json({ message: '유효하지 않은 퀘스트 데이터 (무시됨)' });
     try {
-        const [characters] = await dbPool.query(`SELECT character_id FROM Characters WHERE user_id = ? LIMIT 1`, [userId]); 
+        const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]); 
         if (characters.length === 0) return res.status(404).json({ message: '캐릭터를 찾을 수 없습니다.' });
         const characterId = characters[0].character_id;
         const progressDataJson = JSON.stringify({ 
@@ -813,7 +813,7 @@ app.post('/quest/:userId', async (req, res) => {
             IsFocused: questStatus.IsFocused,           // IsFocused 추가
             MissionProgress: questStatus.MissionProgress // MissionProgress 추가
         });
-        const upsertSql = `INSERT INTO QuestProgress (character_id, quest_id, current_progress_data) VALUES (?, ?, ?) AS new ON DUPLICATE KEY UPDATE current_progress_data = new.current_progress_data`;
+        const upsertSql = `INSERT INTO questprogress (character_id, quest_id, current_progress_data) VALUES (?, ?, ?) AS new ON DUPLICATE KEY UPDATE current_progress_data = new.current_progress_data`;
         await dbPool.query(upsertSql, [characterId, questStatus.questId, progressDataJson]); 
         console.log(`[DB] 퀘스트 진행도 저장 성공 (CharacterID: ${characterId}, QuestID: ${questStatus.questId})`);
         res.status(200).json({ message: '퀘스트 진행도 저장 성공' });
