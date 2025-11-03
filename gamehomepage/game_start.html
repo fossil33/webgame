@@ -97,28 +97,28 @@
     .btn-confirm { background: #d9534f; color: #fff; }
     .btn-cancel { background: #6c757d; color: #fff; }
 
-    /* 채팅 패널 스타일 */
-    .chat-panel{
-      width: 350px;
-      max-width: 420px;
-      min-width: 280px;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      background: #0f0f10;
-      border-left: 1px solid #222;
-      color: #fff;
-      position: absolute;
-      right: 0;
-      top: 0;
-      transform: translateX(100%);
-      transition: transform 0.3s ease-in-out;
-      z-index: 9999; /* Unity 캔버스/풀스크린보다 확실히 위 */
-    }
-
-    .chat-panel.show {
-      transform: translateX(0);
-    }
+    /* 기존 .chat-panel 규칙을 아래로 통째로 교체 */
+.chat-panel{
+  position: fixed;        /* 뷰포트 고정: 레이아웃 영향 제거 */
+  right: 0;
+  top: 0;
+  width: 350px;
+  max-width: 420px;
+  min-width: 280px;
+  height: 100dvh;         /* 모바일 주소창 변화에도 안정적인 높이 */
+  display: flex;
+  flex-direction: column;
+  background: #0f0f10;
+  border-left: 1px solid #222;
+  color: #fff;
+  transform: translate3d(100%,0,0);   /* GPU 레이어 고정 */
+  transition: transform .28s ease;    /* 살짝 더 부드러운 기본값 */
+  z-index: 9999;
+  will-change: transform;  /* 합성 최적화 힌트 */
+  contain: layout paint;   /* 외부 레이아웃/페인트 영향 차단 */
+  overscroll-behavior: contain; /* 모바일 바운스 스크롤 억제 */
+}
+.chat-panel.show{ transform: translate3d(0,0,0); }
     
     .chat-header{ padding:10px 12px; font-weight:600; border-bottom:1px solid #222; }
     .chat-body{ flex:1; overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:8px; }
@@ -515,6 +515,91 @@ window.addEventListener('DOMContentLoaded', () => {
     backdropFilter:'blur(6px)'
   });
   document.body.appendChild(bell);
+   (function makeDmBellDraggable(bell){
+    const POS_KEY = 'dmBellPos_v1';
+
+    // 기본 위치를 우하단으로, 저장된 값이 있으면 복원
+    function applyPos(x, y){
+      bell.style.left   = x + 'px';
+      bell.style.top    = y + 'px';
+      bell.style.right  = 'auto';
+      bell.style.bottom = 'auto';
+    }
+    function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+    // 초기 배치
+    const saved = (() => { try { return JSON.parse(localStorage.getItem(POS_KEY)||''); } catch(_) { return null; } })();
+    if (saved && typeof saved.x==='number' && typeof saved.y==='number'){
+      applyPos(saved.x, saved.y);
+    } else {
+      // 우하단 기본 배치: viewport기준 여백 18px
+      const x = window.innerWidth  - 18 - 44; // 44 = 버튼 폭
+      const y = window.innerHeight - 18 - 44; // 44 = 버튼 높이
+      applyPos(x, y);
+    }
+
+    // 드래그 상태
+    let dragging = false, moved = false;
+    let grabDX = 0, grabDY = 0;  // 포인터-버튼 좌상단 간 오프셋
+    let startX = 0, startY = 0;  // 포인터 시작 좌표
+
+    // 드래그 시작
+    bell.style.touchAction = 'none'; // 터치 드래그 허용
+    bell.addEventListener('pointerdown', (e) => {
+      // 열림 클릭과 구분하기 위해 pointer capture
+      bell.setPointerCapture(e.pointerId);
+      dragging = true; moved = false;
+      const rect = bell.getBoundingClientRect();
+      grabDX = e.clientX - rect.left;
+      grabDY = e.clientY - rect.top;
+      startX = e.clientX; startY = e.clientY;
+    });
+
+    // 드래그 중
+    bell.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const minX = 6, minY = 6;
+      const maxX = window.innerWidth  - bell.offsetWidth  - 6;
+      const maxY = window.innerHeight - bell.offsetHeight - 6;
+      let nx = clamp(e.clientX - grabDX, minX, maxX);
+      let ny = clamp(e.clientY - grabDY, minY, maxY);
+      applyPos(nx, ny);
+      if (Math.abs(e.clientX - startX) > 3 || Math.abs(e.clientY - startY) > 3) moved = true;
+    });
+
+    // 드래그 종료: 위치 저장
+    function finishDrag(e){
+      if (!dragging) return;
+      dragging = false;
+      try {
+        const rect = bell.getBoundingClientRect();
+        localStorage.setItem(POS_KEY, JSON.stringify({ x: Math.round(rect.left), y: Math.round(rect.top) }));
+      } catch(_){}
+      // 방금 드래그했으면 클릭 열림을 막는다
+      if (moved) {
+        bell.__dragBlockClick__ = true;
+        setTimeout(() => bell.__dragBlockClick__ = false, 50);
+      }
+    }
+    bell.addEventListener('pointerup', finishDrag);
+    bell.addEventListener('pointercancel', finishDrag);
+    window.addEventListener('resize', () => {
+      // 창 크기 변할 때 화면 밖으로 나가면 안쪽으로 클램프
+      const rect = bell.getBoundingClientRect();
+      const minX = 6, minY = 6;
+      const maxX = window.innerWidth  - bell.offsetWidth  - 6;
+      const maxY = window.innerHeight - bell.offsetHeight - 6;
+      applyPos(clamp(rect.left, minX, maxX), clamp(rect.top, minY, maxY));
+    });
+
+    // 드래그 직후 발생하는 클릭은 막아 기존 click 핸들러가 열어버리지 않게 함
+    bell.addEventListener('click', (e) => {
+      if (bell.__dragBlockClick__) {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+      }
+    }, { capture: true });
+  })(bell);
 
   const toastStack = document.createElement('div');
   toastStack.className = 'toast-stack';

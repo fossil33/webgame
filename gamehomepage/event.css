@@ -237,9 +237,7 @@ a:hover {
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    margin: 0;
-    flex-grow: 1; /* 요약이 남은 공간 차지 */
-    min-height: calc(1.6em * 2); /* 최소 2줄 높이 확보 */
+    transition: all 0.25s ease;
 }
 
 .event-meta {

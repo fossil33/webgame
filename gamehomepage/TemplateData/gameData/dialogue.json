@@ -1,109 +1,85 @@
-[
-  {
-    "dialogueID": "CHIEF_RUMOR_START",
-    "lines": [
-      {
-        "speakerName": "마을 이장",
-        "sentence": "오, 마침 잘 왔네. 자네에게 부탁할 일이 있네."
-      },
-      {
-        "speakerName": "마을 이장",
-        "sentence": "곧 마을 축제를 열려고 하니, 대장장이와 상점 주인에게 이 소식을 좀 전해주게나."
+{
+  "CHIEF": {
+    "DEFAULT": [
+      { "speakerName": "마을 이장", "sentence": "허허, 마을에 무슨 일이라도 있나?" }
+    ],
+    "QUESTS": {
+      "KAYA": {
+        "STEP0_COMPLETE": [
+          { "speakerName": "마을 이장", "sentence": "윈드마을 말인가? 거긴 지금 도적들이 들끓어서 접근 금지 구역이 되었네." },
+          { "speakerName": "마을 이장", "sentence": "무슨 일인지는 몰라도, 아리사에게 이 소식을 전해주게." }
+        ],
+        "STEP1_INPROGRESS": [
+          { "speakerName": "마을 이장", "sentence": "아리사에게 소식은 전했나?" }
+        ]
       }
-    ]
+    }
   },
-  {
-    "dialogueID": "CHIEF_RUMOR_INPROGRESS",
-    "lines": [
-      {
-        "speakerName": "마을 이장",
-        "sentence": "아직 소식을 다 전하지 못했나? 서둘러주게."
+  "GIRL": {
+    "DEFAULT": [
+      { "speakerName": "마을 소녀", "sentence": "훌쩍... 카야..." }
+    ],
+    "QUESTS": {
+      "KAYA": {
+        "START": [
+          { "speakerName": "마을 소녀", "sentence": "안녕하세요... 흑... 제 동생 카야가 마을 밖에 나갔는데 돌아오지 않아요." },
+          { "speakerName": "Player", "sentence": "무슨 일인지 자세히 말해줄래?" },
+          { "speakerName": "마을 소녀", "sentence": "분명 용병 아리사 언니 근처에서 논다고 했는데... 제발 아리사 언니에게 가봐주세요!" }
+        ],
+        "INPROGRESS": [
+          { "speakerName": "마을 소녀", "sentence": "아리사 언니는 만나보셨나요? 제 동생 좀 찾아주세요..." }
+        ]
       }
-    ]
+    }
   },
-  {
-    "dialogueID": "CHIEF_RUMOR_COMPLETE",
-    "lines": [
-      {
-        "speakerName": "마을 이장",
-        "sentence": "모두에게 소식을 전하고 왔군. 정말 고맙네! 이건 내 성의일세."
+  "ARISA": {
+    "DEFAULT": [
+      { "speakerName": "아리사", "sentence": "용병에게 볼일이라도?" }
+    ],
+    "QUESTS": {
+      "KAYA": {
+        "STEP0_FIRST": [
+          { "speakerName": "아리사", "sentence": "카야? 아, 그 꼬마. 아까 윈드마을 쪽으로 달려가는 걸 봤는데." },
+          { "speakerName": "아리사", "sentence": "요즘 그쪽 흉흉하던데... 마을 이장님께 윈드마을에 대해 뭔가 아시는 게 있는지 여쭤봐." }
+        ],
+        "STEP0_REPEATED": [
+          { "speakerName": "아리사", "sentence": "이장님은 만나봤나? 윈드마을 소식부터 알아와야지." }
+        ],
+        "STEP1_FIRST": [
+          { "speakerName": "아리사", "sentence": "뭐? 도적떼?... 이럴수가. 카야가 위험해!" },
+          { "speakerName": "아리사", "sentence": "당장 구하러 가야겠어. 자네, 날 좀 도와주겠나?" }
+        ],
+        "STEP1_REPEATED": [
+          { "speakerName": "아리사", "sentence": "마음의 준비가 되면 다시 말을 걸어주게." }
+        ],
+        "STEP1_COMPLETE": [
+          { "speakerName": "아리사", "sentence": "좋아, 가자! 늦기 전에!" }
+        ]
       }
-    ]
+    }
   },
-  {
-    "dialogueID": "BLACKSMITH_RUMOR_FIRST",
-    "lines": [
-      {
-        "speakerName": "대장장이",
-        "sentence": "음? 마을 축제라니, 좋은 소식이군! 알려줘서 고맙네."
+  "KAYA": {
+    "DEFAULT": [
+      { "speakerName": "카야", "sentence": "무서워..." }
+    ],
+    "QUESTS": {
+      "KAYA": {
+        "INPROGRESS": [
+          { "speakerName": "카야", "sentence": "으앙! 저 괴물부터 어떻게 좀 해줘요!" }
+        ],
+        "COMPLETE": [
+          { "speakerName": "카야", "sentence": "정말... 정말 고맙습니다! 언니에게... 아니, 마을로 빨리 돌아가고 싶어요!" }
+        ]
       }
-    ]
+    }
   },
-  {
-    "dialogueID": "BLACKSMITH_RUMOR_REPEATED",
-    "lines": [
-      {
-        "speakerName": "대장장이",
-        "sentence": "그래, 축제 소식은 이미 들었네. 기대가 되는군."
-      }
-    ]
-  },
-  {
-    "dialogueID": "MERCHANT_RUMOR_FIRST",
-    "lines": [
-      {
-        "speakerName": "상점 주인",
-        "sentence": "어머, 축제요? 그럼 손님들을 위해 물건을 더 준비해야겠네요. 고마워요!"
-      }
-    ]
-  },
-  {
-    "dialogueID": "MERCHANT_RUMOR_REPEATED",
-    "lines": [
-      {
-        "speakerName": "상점 주인",
-        "sentence": "축제 소식은 잘 들었어요. 덕분에 미리 준비할 수 있겠어요."
-      }
+
+
+  "GUIDE": {
+    "DEFAULT": [
+      { "speakerName": "안내자", "sentence": "좌측에 마을소녀, 우측에 상점, 정면에 아리사 가 있습니다. 마을이장은 한블록 후 좌측에 있습니다. F 키를 눌러 다음 안내" },
+      { "speakerName": "안내자", "sentence": "아직 퀘스트가 많지 않지만 재미있게 즐겨주세요." },
+      { "speakerName": "안내자", "sentence": "F: 상호작용, J : 퀘스트창, I : 인벤토리, P : 프로필 , E: 퀵슬롯 아이템 사용" }
     ]
   }
-,
-  {
-    "dialogueID": "CHIEF_DEFAULT",
-    "lines": [
-      {
-        "speakerName": "마을 이장",
-        "sentence": "허허, 마을에 무슨 일이라도 있나?"
-      },
-      {
-        "speakerName": "마을 이장",
-        "sentence": "평화로운 날이군. 자네 덕분일지도 모르지."
-      }
-    ]
-  },
-  {
-    "dialogueID": "BLACKSMITH_DEFAULT",
-    "lines": [
-      {
-        "speakerName": "대장장이",
-        "sentence": "흠, 쓸만한 무기라도 찾나?"
-      },
-      {
-        "speakerName": "대장장이",
-        "sentence": "망치가 식기 전에 용건을 말하게."
-      }
-    ]
-  },
-  {
-    "dialogueID": "MERCHANT_DEFAULT",
-    "lines": [
-      {
-        "speakerName": "상점 주인",
-        "sentence": "어서 오세요! 필요한 물건이라도 있으신가요?"
-      },
-      {
-        "speakerName": "상점 주인",
-        "sentence": "둘러보시고 필요한 게 있으면 말씀하세요."
-      }
-    ]
-  }
-]
+}

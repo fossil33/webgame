@@ -110,6 +110,7 @@ function renderGrid(events) {
     `;
     grid.appendChild(card);
   });
+  
 }
 
 /* ---------- 상호작용 ---------- */

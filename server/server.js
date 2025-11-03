@@ -9,7 +9,7 @@ const fs = require('fs');
 const app = express();
 const server = http.createServer(app);
 
-const PORT = 3000;
+const PORT = 8080;
 
 require('dotenv').config();
 
@@ -542,7 +542,21 @@ app.get('/playerData/inventory/:userId', async (req, res) => {
         if (characters.length === 0) return res.status(404).json({ message: '캐릭터를 찾을 수 없습니다.' });
         const characterId = characters[0].character_id;
         console.log(`[inventory Check] 2. characterId: ${characterId}`);
-        const invSql = `SELECT inv.inventory_slot AS slotIndex, COALESCE(i.item_type, 0) AS slotType, inv.item_id AS itemId, inv.quantity AS itemCount FROM inventory inv LEFT JOIN Items i ON inv.item_id = i.item_id WHERE inv.character_id = ? AND inv.item_id IS NOT NULL AND inv.item_id != 0 ORDER BY inv.inventory_slot ASC`;
+        // /playerData/inventory/:userId 내부
+const invSql = `
+  SELECT
+    inv.inventory_slot AS slotIndex,
+    COALESCE(i.item_type, 0) AS slotType,
+    inv.item_id AS itemId,
+    inv.quantity AS itemCount
+  FROM inventory inv
+  LEFT JOIN items i ON inv.item_id = i.item_id   -- ✅ 소문자 items
+  WHERE inv.character_id = ?
+    AND inv.item_id IS NOT NULL
+    AND inv.item_id != 0
+  ORDER BY inv.inventory_slot ASC
+`;
+
         const [results] = await dbPool.query(invSql, [characterId]); 
         console.log(`[inventory Check] 3. ${results.length} items found.`);
         const inventory = results.map(item => ({ ...item, itemSpec: {} }));

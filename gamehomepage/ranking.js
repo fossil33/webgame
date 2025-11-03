@@ -145,7 +145,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   await Promise.all([
     renderRanking('power', 'power-list', '전투력'),
     renderRanking('level', 'level-list', '레벨'),
-    renderPlaceholderRanking('BOSS BATTLE', 'boss-list'),
-    renderPlaceholderRanking('QUEST COMPLETE', 'progress-list')
   ]);
 });

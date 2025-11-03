@@ -1,40 +1,70 @@
 [
   {
-    "questID": 101,
-    "questName": "마을의 소문",
-    "script": "마을 이장님의 부탁을 들어 주민들에게 축제 소식을 전파하자.",
-    "requiredLevel": 2,
+    "questID": 102,
+    "questName": "사라진 동생",
+    "script": "마을 소녀를 도와 사라진 동생 카야를 찾자.",
+    "requiredLevel": 0,
     "steps": [
       {
-        "stepDescription": "2명의 주민들에게 축제 소식을 전하자.",
-        "startNpcId": 101,
+        "stepDescription": "아리사에게 카야의 행방을 묻고, 마을 이장에게 윈드마을의 정보를 얻자.",
+        "startNpcId": 102,
         "turnInNpcId": 101,
         "missions": [
           {
             "type": "TalkTo",
-            "missionScript": "대장장이에게 축제 소식 전하기",
-            "targetId": 201,
+            "missionScript": "아리사에게 카야의 행방 묻기",
+            "targetId": 103,
             "requiredAmount": 1,
-            "dialogueKey_Initial": "BLACKSMITH_RUMOR_FIRST",
-            "dialogueKey_Repeated": "BLACKSMITH_RUMOR_REPEATED"
-          },
+            "dialogueKey_Initial": "ARISA_KAYA_STEP0_FIRST",
+            "dialogueKey_Repeated": "ARISA_KAYA_STEP0_REPEATED"
+          }
+        ],
+        "rewards": null,
+        "dialogueKey_Start": "GIRL_KAYA_START",
+        "dialogueKey_InProgress": "GIRL_KAYA_INPROGRESS",
+        "dialogueKey_Complete": "CHIEF_KAYA_STEP0_COMPLETE"
+      },
+      {
+        "stepDescription": "마을 이장에게 얻은 정보를 아리사에게 전하고, 전투를 준비하자.",
+        "startNpcId": 101,
+        "turnInNpcId": 103,
+        "missions": [
           {
             "type": "TalkTo",
-            "missionScript": "상점 주인에게 축제 소식 전하기",
-            "targetId": 202,
+            "missionScript": "아리사에게 정보 전달하기",
+            "targetId": 103,
             "requiredAmount": 1,
-            "dialogueKey_Initial": "MERCHANT_RUMOR_FIRST",
-            "dialogueKey_Repeated": "MERCHANT_RUMOR_REPEATED"
+            "dialogueKey_Initial": "ARISA_KAYA_STEP1_FIRST",
+            "dialogueKey_Repeated": "ARISA_KAYA_STEP1_REPEATED"
+          }
+        ],
+        "rewards": null,
+        "dialogueKey_Start": "CHIEF_KAYA_STEP0_COMPLETE",
+        "dialogueKey_InProgress": "CHIEF_KAYA_STEP1_INPROGRESS",
+        "dialogueKey_Complete": "ARISA_KAYA_STEP1_COMPLETE"
+      },
+      {
+        "stepDescription": "도적왕을 처치하고 카야를 구출하자.",
+        "startNpcId": 0,
+        "turnInNpcId": 105,
+        "missions": [
+          {
+            "type": "Kill",
+            "missionScript": "도적왕 처치",
+            "targetId": 100,
+            "requiredAmount": 1,
+            "dialogueKey_Initial": null,
+            "dialogueKey_Repeated": null
           }
         ],
         "rewards": {
-          "exp": 10,
-          "itemId": 0,
-          "gold": 50
+          "exp": 50,
+          "itemId": 601,
+          "gold": 1000
         },
-        "dialogueKey_Start": "CHIEF_RUMOR_START",
-        "dialogueKey_InProgress": "CHIEF_RUMOR_INPROGRESS",
-        "dialogueKey_Complete": "CHIEF_RUMOR_COMPLETE"
+        "dialogueKey_Start": null,
+        "dialogueKey_InProgress": "KAYA_KAYA_INPROGRESS",
+        "dialogueKey_Complete": "KAYA_KAYA_COMPLETE"
       }
     ]
   }
