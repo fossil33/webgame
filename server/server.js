@@ -77,7 +77,7 @@ const io = new Server(server, {
     origin: [
       "http://localhost:8080",
       "http://localhost:3000",
-      "https://xn--479aqgv87cx8e1va.site",
+        "https://xn--479aqgv87cx8e1va.site",
       "http://xn--479aqgv87cx8e1va.site"
     ],
     methods: ["GET", "POST"],
@@ -563,20 +563,32 @@ app.get('/playerData/inventory/:userId', async (req, res) => {
         if (characters.length === 0) return res.status(404).json({ message: '캐릭터를 찾을 수 없습니다.' });
         const characterId = characters[0].character_id;
         console.log(`[inventory Check] 2. characterId: ${characterId}`);
-        // /playerData/inventory/:userId 내부
-const invSql = `
-  SELECT
-    inv.inventory_slot AS slotIndex,
-    COALESCE(i.item_type, 0) AS slotType,
-    inv.item_id AS itemId,
-    inv.quantity AS itemCount
-  FROM inventory inv
-  LEFT JOIN items i ON inv.item_id = i.item_id   -- ✅ 소문자 items
-  WHERE inv.character_id = ?
-    AND inv.item_id IS NOT NULL
-    AND inv.item_id != 0
-  ORDER BY inv.inventory_slot ASC
-`;
+        const invSql = `
+SELECT
+            inv.inventory_slot AS slotIndex,
+            CASE 
+              WHEN TRIM(i.item_type) = 'Weapon' THEN 'Equipment'
+              WHEN TRIM(i.item_type) = 'Armor' THEN 'Equipment'
+              WHEN TRIM(i.item_type) = 'Helmet' THEN 'Equipment' 
+              WHEN TRIM(i.item_type) = 'Gloves' THEN 'Equipment'
+              WHEN TRIM(i.item_type) = 'Boots' THEN 'Equipment'
+              WHEN TRIM(i.item_type) = 'Potion' THEN 'Consumption'
+              WHEN TRIM(i.item_type) = 'Food' THEN 'Consumption'
+              WHEN TRIM(i.item_type) = 'Scroll' THEN 'Consumption'
+              WHEN TRIM(i.item_type) = 'Profile' THEN 'Profile'
+              WHEN TRIM(i.item_type) = 'Quick' THEN 'Quick'
+              ELSE 'Other'
+            END AS slotType,
+            END AS slotType,
+            inv.item_id AS itemId,
+            inv.quantity AS itemCount
+          FROM inventory inv
+          LEFT JOIN items i ON inv.item_id = i.item_id 
+          WHERE inv.character_id = ?
+            AND inv.item_id IS NOT NULL
+            AND inv.item_id != 0
+          ORDER BY inv.inventory_slot ASC
+        `;
 
         const [results] = await dbPool.query(invSql, [characterId]); 
         console.log(`[inventory Check] 3. ${results.length} items found.`);
