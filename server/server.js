@@ -122,15 +122,15 @@ io.on('connection', (socket) => {
             let playerData;
             if (results.length === 0) {
                 console.log(`[Game] DB에서 ${userId}의 위치 정보를 찾지 못해 기본값으로 설정합니다.`);
-                playerData = { id: userId, position: { x: 330, y: 6, z: 300 }, rotation: { x: 0, y: 0, z: 0 } };
+                playerData = { id: userId, position: { x: -15.76, y: 3.866, z: 49.78 }, rotation: { x: 0, y: 0, z: 0 } };
             } else {
                 const dbPos = results[0];
                 playerData = { 
     id: userId, 
     position: { 
-        x: dbPos.position_x || 330, 
-        y: dbPos.position_y || 6, 
-        z: dbPos.position_z || 300 
+        x: dbPos.position_x || -15.76, 
+        y: dbPos.position_y || 3.866, 
+        z: dbPos.position_z || 49.78 
     }, 
     rotation: { x: 0, y: dbPos.rotation_y || 0, z: 0 } // rotation_y도 예방 차원에서 || 0 추가
 };
@@ -141,7 +141,7 @@ io.on('connection', (socket) => {
         } catch (err) {
             console.error('[Game] Initialize DB error:', err);
              // DB 오류 시 기본값으로라도 초기화 시도
-            const playerData = { id: userId, position: { x: 330, y: 6, z: 300 }, rotation: { x: 0, y: 0, z: 0 } };
+            const playerData = { id: userId, position: { x: -15.76, y: 3.866, z: 49.78 }, rotation: { x: 0, y: 0, z: 0 } };
             gamePlayers[userId] = playerData;
             socket.emit('initializeComplete', playerData);
             socket.broadcast.emit('newPlayer', playerData);
@@ -208,7 +208,13 @@ app.post('/auth/kakao', async (req, res) => {
         const [characters] = await connection.query(`SELECT character_id FROM characters WHERE user_id = ?`, [id]);
 
         if (characters.length === 0) {
-            const [characterResult] = await connection.query(`INSERT INTO characters (user_id, character_name) VALUES (?, ?)`, [id, nickname]);
+           const sql = `
+    INSERT INTO characters 
+        (user_id, character_name, position_x, position_y, position_z, rotation_y) 
+    VALUES 
+        (?, ?, -15.76, 3.866, 49.78, 0)
+`;
+const [characterResult] = await connection.query(sql, [id, nickname]);
             const newCharacterId = characterResult.insertId;
             await connection.query(`INSERT INTO characterstats (character_id) VALUES (?)`, [newCharacterId]);
             await connection.query(`INSERT INTO inventory (character_id, inventory_slot, item_id) VALUES (?, 1, 101)`, [newCharacterId]);
@@ -330,7 +336,13 @@ app.get('/api/events', async (req, res) => {
     LEFT JOIN characters c ON p.author_character_id = c.character_id
     LEFT JOIN users u ON p.author_user_id = u.user_id
     ${where}
-    ORDER BY p.created_at DESC LIMIT 200;
+    ORDER BY CASE WHEN ${statusExpr} THEN 0 ELSE 1 END ASC,                                  
+  CASE                                                                               
+    WHEN ${statusExpr} THEN COALESCE(p.event_start_date, p.created_at)            
+    ELSE COALESCE(p.event_end_date,   p.created_at)                               
+  END DESC,
+  p.created_at DESC                                                            
+LIMIT 200;
   `;
   try {
     const [rows] = await dbPool.query(sql); 
@@ -707,9 +719,9 @@ app.get('/playerData/:userId', async (req, res) => {
         if (results.length === 0) return res.status(404).send('플레이어 정보를 찾을 수 없습니다.');
         const data = results[0];
         const response = { id: data.id, nickname: data.nickname, currentHp: data.currentHp, maxHp: data.maxHp, level: data.level, exp: data.exp, speed: data.speed, defense: data.defense, damage: data.damage, dead: false, gold: data.gold, position: { 
-    x: data.position_x || 330, 
-    y: data.position_y || 6, 
-    z: data.position_z || 300 
+    x: data.position_x || -15.76, 
+    y: data.position_y || 3.866, 
+    z: data.position_z || 49.78 
 }, rotation: { x: 0, y: data.rotation_y, z: 0 } };
         res.json(response);
     } catch (err) {
@@ -723,7 +735,7 @@ app.post('/playerData/:userId', async (req, res) => {
     const { userId } = req.params;
     const playerData = req.body || {};
     console.log(`[POST /playerData] User ${userId} sent data:\n`, JSON.stringify(playerData, null, 2));
-    const defaultData = { level: 1, gold: 0, position: { x: 330, y: 6, z: 300 }, rotation: { x: 0, y: 0, z: 0 }, currentHp: 100, maxHp: 100, exp: 0, speed: 3, defense: 5, damage: 1 };
+    const defaultData = { level: 1, gold: 0, position: { x: -15.76, y: 3.866, z: 49.78 }, rotation: { x: 0, y: 0, z: 0 }, currentHp: 100, maxHp: 100, exp: 0, speed: 3, defense: 5, damage: 1 };
     const finalPlayerData = { ...defaultData, ...playerData };
     let connection;
     try {

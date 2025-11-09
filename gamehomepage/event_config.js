@@ -7,9 +7,9 @@
 // (DB의 post_id를 key로 사용합니다)
 const EVENT_IMAGE_MAP = {
 
-  12: 'images/출석.jpg',
-  13: 'images/버프.jpg',
-  14: 'images/버프.jpg',
+  1: 'images/주말버프.jpg',
+  2: 'images/할러윈.jpg',
+  3: 'images/신규지원.jpg',
 };
 
 const DEFAULT_EVENT_IMAGE = 'images/game_default.jpg';
