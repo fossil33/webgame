@@ -73,7 +73,16 @@ app.use(express.static(publicPath));
 app.get('/', (req, res) => res.sendFile(path.join(publicPath, '4_main.html')));
 
 const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] }
+  cors: {
+    origin: [
+      "http://localhost:8080",
+      "http://localhost:3000",
+      "https://xn--479aqgv87cx8e1va.site",
+      "http://xn--479aqgv87cx8e1va.site"
+    ],
+    methods: ["GET", "POST"],
+    credentials: true
+  }
 });
 const onlineUsers = new Map();
 const socketIdToUserId = new Map();
