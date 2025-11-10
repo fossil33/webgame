@@ -782,13 +782,35 @@ app.post('/playerData/inventory/:userId', async (req, res) => {
     try {
         const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]); 
         if (characters.length === 0) return res.status(404).json({ message: '캐릭터를 찾을 수 없습니다.' });
+        
         const characterId = characters[0].character_id;
+
         if (slotData.hasItem === false) {
             await dbPool.query('DELETE FROM inventory WHERE character_id = ? AND inventory_slot = ?', [characterId, slotData.slotIndex]); 
             res.status(200).json({ success: true, message: '인벤토리 슬롯 초기화 성공' });
+        
         } else {
-            const upsertSql = `INSERT INTO inventory (character_id, inventory_slot, item_id, quantity) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE item_id = VALUES(item_id), quantity = VALUES(quantity)`;
-            await dbPool.query(upsertSql, [characterId, slotData.slotIndex, slotData.itemId, slotData.itemCount]); 
+            const itemSpecJson = (slotData.itemSpec) ? JSON.stringify(slotData.itemSpec) : null;
+
+            const upsertSql = `
+                INSERT INTO inventory 
+                    (character_id, inventory_slot, item_id, quantity, item_spec) 
+                VALUES 
+                    (?, ?, ?, ?, ?) 
+                ON DUPLICATE KEY UPDATE 
+                    item_id = VALUES(item_id), 
+                    quantity = VALUES(quantity), 
+                    item_spec = VALUES(item_spec)
+            `;
+
+            await dbPool.query(upsertSql, [
+                characterId, 
+                slotData.slotIndex, 
+                slotData.itemId, 
+                slotData.itemCount, 
+                itemSpecJson 
+            ]); 
+            
             res.status(201).json({ success: true, message: '인벤토리 업데이트 성공' });
         }
     } catch (err) {
