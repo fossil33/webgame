@@ -800,8 +800,8 @@ app.post('/playerData/inventory/:userId', async (req, res) => {
                 ON DUPLICATE KEY UPDATE 
                     item_id = VALUES(item_id), 
                     quantity = VALUES(quantity), 
-                    item_spec = VALUES(item_spec)
-            `;
+                    item_spec = IF(VALUES(item_spec) IS NOT NULL, VALUES(item_spec), inventory.item_spec)
+            `; 
 
             await dbPool.query(upsertSql, [
                 characterId, 
@@ -818,7 +818,6 @@ app.post('/playerData/inventory/:userId', async (req, res) => {
         res.status(500).json({ success: false, message: 'DB 오류' });
     }
 });
-
 // 거래소 API
 // 전체 판매 목록
 app.get('/market/items', async (req, res) => {
@@ -851,15 +850,23 @@ app.get('/market/items/:userId', async (req, res) => {
 // 아이템 판매 등록
 app.post('/market/items', async (req, res) => {
     console.log("판매 요청 데이터:", req.body);
-    const { userId, ItemId, ItemData, itemCount, price } = req.body;
+    
+    const { userId, ItemId, ItemData, itemSpec, itemCount, price } = req.body;
+    
     console.log(`[POST] ${userId} 판매 등록 요청`);
-    const itemSpecJson = JSON.stringify(ItemData);
+    
+    const specObjectToSave = ItemData || itemSpec || {}; 
+    const itemSpecJson = JSON.stringify(specObjectToSave); 
+
     try {
         const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]);
         if (characters.length === 0) return res.status(404).json({ success: false, message: '캐릭터를 찾을 수 없습니다.' });
         const seller_character_id = characters[0].character_id;
+        
         const addItemSql = 'INSERT INTO marketlistings (seller_character_id, item_id, quantity, price, item_spec, listed_at, expires_at) VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 DAY))';
+        
         const [result] = await dbPool.query(addItemSql, [seller_character_id, ItemId, itemCount, price, itemSpecJson]); 
+        
         res.status(200).json({ success: true, message: '아이템 등록 성공!', marketId: result.insertId, ItemCount: parseInt(itemCount, 10), price: parseInt(price, 10) });
     } catch (err) {
         console.error("거래소 등록 실패:", err);
