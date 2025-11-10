@@ -122,15 +122,10 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- [수정됨] 게임 멀티플레이 (test.js 로직 적용) ---
-
-    // [수정] 1. initialize: 씬(맵) 정보도 함께 불러옵니다.
-    // (기존 server.js의 DB 로직 + test.js의 gamePlayers[userId] 저장 로직)
     socket.on('initialize', async (userId) => { 
         console.log(`[Game] Initializing player: ${userId} for socket ${socket.id}`);
         socketIdToUserId.set(socket.id, userId);
 
-        // [수정] 쿼리에 current_scene_name 추가
         const sql = `SELECT c.character_id, c.character_name, c.position_x, c.position_y, c.position_z, c.rotation_y, c.current_scene_name, u.nickname 
                      FROM characters c 
                      LEFT JOIN users u ON c.user_id = u.user_id 
@@ -161,7 +156,7 @@ io.on('connection', (socket) => {
                     currentSceneName: dbData.current_scene_name || 'Main' // DB 씬
                 };
             }
-            gamePlayers[userId] = playerData; // 서버 메모리에 플레이어 정보 저장 (test.js의 onlinePlayers 역할)
+            gamePlayers[userId] = playerData; 
             socket.emit('initializeComplete', playerData); // 클라이언트에 초기 데이터 전송
         } catch (err) {
             console.error('[Game] Initialize DB error:', err);
@@ -178,8 +173,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // [신규] 2. requestSceneChange (test.js 로직 + DB 저장)
-    // (중요) respawn에 데이터를 담아 보내지 않습니다. (test.js 방식)
     socket.on('requestSceneChange', async (data) => {
         const userId = socketIdToUserId.get(socket.id);
         if (!userId || !gamePlayers[userId]) {
@@ -199,17 +192,17 @@ io.on('connection', (socket) => {
             const newPos = data.pos;
             const oldScene = gamePlayers[userId].currentSceneName;
 
-            // 1. (중요) DB 갱신 (await로 저장 완료까지 기다림)
+            // DB 갱신
             await dbPool.query(
                 `UPDATE characters SET current_scene_name = ?, position_x = ?, position_y = ?, position_z = ? WHERE user_id = ?`,
                 [newScene, newPos.x, newPos.y, newPos.z, userId]
             );
 
-            // 2. 서버 메모리(gamePlayers) 갱신
+            // 서버 메모리 갱신
             gamePlayers[userId].currentSceneName = newScene;
             gamePlayers[userId].position = newPos;
 
-            // 3. (중요) 이전 씬(Room)에서 나감 (test.js 로직)
+            // 이전 씬(Room)에서 나감
             if (oldScene && !SINGLE_PLAYER_SCENES.includes(oldScene)) {
                 socket.leave(oldScene);
                 socket.to(oldScene).emit('playerDisconnected', userId);
@@ -217,7 +210,6 @@ io.on('connection', (socket) => {
             
             console.log(`[SceneChange] User ${userId} moving from ${oldScene} to ${newScene} (DB Update Complete)`);
 
-            // 4. (핵심) 클라이언트에게 씬을 다시 로드하라고 **빈 신호** 전송 (test.js 방식)
             socket.emit('respawn'); 
             // 클라이언트는 이 신호를 받고 'initialize'부터 다시 시작하며, DB에서 변경된 씬 이름을 읽어갑니다.
 
@@ -227,7 +219,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // [신규] 3. LoadSceneComplete (test.js 로직)
     // 씬 로딩이 완료되면 Room에 입장하고, 씬(맵) 안의 유저 정보만 받음
     socket.on('LoadSceneComplete', () => {
         const userId = socketIdToUserId.get(socket.id);
@@ -246,10 +237,9 @@ io.on('connection', (socket) => {
         
         // 1인용 씬("Combat" 등)이 아닐 경우에만 Room 로직 처리
         if (sceneName && !SINGLE_PLAYER_SCENES.includes(sceneName)) {
-            socket.join(sceneName); // [추가] 씬(맵) 이름을 기준으로 Room에 입장
+            socket.join(sceneName); 
             console.log(`[Game] Player ${userId} joined room: ${sceneName}`);
 
-            // [수정] 같은 씬(Room)에 있는 다른 유저만 필터링
             const otherPlayers = Object.values(gamePlayers).filter(p =>
                 p.id !== userId && p.currentSceneName === sceneName
             );
@@ -257,7 +247,6 @@ io.on('connection', (socket) => {
             // 나에게 "같은 씬에 있던 유저 목록" 전송
             socket.emit('currentPlayers', { players: otherPlayers });
             
-            // [수정] 같은 씬(Room) 유저들에게만 "내가 새로 들어왔다"고 알림
             socket.to(sceneName).emit('newPlayer', player);
 
         } else {
@@ -267,7 +256,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // [수정] 4. playerMovement: 같은 씬(Room) 유저에게만 전송
     socket.on('playerMovement', (movementData) => {
         const userId = socketIdToUserId.get(socket.id);
         if (!userId || !gamePlayers[userId]) return;
@@ -280,14 +268,14 @@ io.on('connection', (socket) => {
             playerData.position = movementData.position;
             playerData.rotation = movementData.rotation;
 
-            // 1인용 씬이 아닐 경우에만 룸에 브로드캐스트 (test.js 로직)
+            // 1인용 씬이 아닐 경우에만 룸에 브로드캐스트
             if (sceneName && !SINGLE_PLAYER_SCENES.includes(sceneName)) {
                 socket.to(sceneName).emit('updatePlayerMovement', { id: userId, ...movementData });
             }
         }
     });
 
-    // [수정] 5. playerAnimation: 같은 씬(Room) 유저에게만 전송
+    // playerAnimation: 같은 씬(Room) 유저에게만 전송
     socket.on('playerAnimation', (animData) => {
         const userId = socketIdToUserId.get(socket.id);
         if (!userId || !gamePlayers[userId]) return;
@@ -295,13 +283,12 @@ io.on('connection', (socket) => {
         const playerData = gamePlayers[userId];
         const sceneName = playerData.currentSceneName;
 
-        // 1인용 씬이 아닐 경우에만 룸에 브로드캐스트 (test.js 로직)
+        // 1인용 씬이 아닐 경우에만 룸에 브로드캐스트
         if (sceneName && !SINGLE_PLAYER_SCENES.includes(sceneName)) {
             socket.to(sceneName).emit('updatePlayerAnimation', { id: userId, ...animData });
         }
     });
     
-    // [신규] 6. playerAttack (test.js 로직)
     socket.on('playerAttack', () => {
         const userId = socketIdToUserId.get(socket.id);
         if (!userId || !gamePlayers[userId]) return;
@@ -312,7 +299,6 @@ io.on('connection', (socket) => {
         }
     });
 
-    // [신규] 7. playerDied (test.js 로직 + DB 저장)
     socket.on('playerDied', async () => {
         const userId = socketIdToUserId.get(socket.id); 
         if (!userId || !gamePlayers[userId]) {
@@ -322,12 +308,10 @@ io.on('connection', (socket) => {
         
         console.log(`[Game] Player ${userId} died. Resetting data...`);
 
-        // 1. 부활 위치 및 씬 설정
+        // 부활 위치 및 씬 설정
         const respawnPosition = { x: -15.76, y: 3.866, z: 49.78 }; 
         const respawnScene = 'Main';
-        
-        // 2. (중요) DB(characters) 데이터 덮어쓰기
-        // (test.js는 players[userId].exp = 0; 만 했지만, DB 서버는 더 확실하게 저장)
+
         try {
             await dbPool.query(
                 `UPDATE characters SET current_scene_name = ?, position_x = ?, position_y = ?, position_z = ?, level = 1, gold = 0 WHERE user_id = ?`,
@@ -341,36 +325,31 @@ io.on('connection', (socket) => {
             console.error(`[Game] DB Error on playerDied for ${userId}:`, err);
         }
 
-        // 3. (선택) 서버 메모리(gamePlayers)에도 즉시 반영
         gamePlayers[userId].position = respawnPosition;
         gamePlayers[userId].currentSceneName = respawnScene;
         // (HP, Exp 등은 어차피 'initialize'할 때 DB에서 다시 읽어옴)
-
-        // 4. 클라이언트에게 'respawn' 신호 전송 (test.js 로직)
+ 
         socket.emit('respawn');
     });
 
 
-    // [수정] 8. disconnect: 씬(Room)을 기준으로 처리
     socket.on('disconnect', () => {
         console.log(`[Socket.IO] User disconnected: ${socket.id}`);
         const userId = socketIdToUserId.get(socket.id);
         if (!userId) return;
 
-        // --- [수정] Game Logic (test.js 로직) ---
+        // --- Game Logic  ---
         const playerData = gamePlayers[userId];
         if (playerData) {
-            const oldScene = playerData.currentSceneName; // [추가] 떠나기 전 씬 이름
-            delete gamePlayers[userId]; // [수정] 메모리에서 삭제
+            const oldScene = playerData.currentSceneName; 
+            delete gamePlayers[userId];
 
-            // [수정] 1인용 씬이 아니었다면, 같은 씬(Room) 유저에게만 알림
             if (oldScene && !SINGLE_PLAYER_SCENES.includes(oldScene)) {
                 io.to(oldScene).emit('playerDisconnected', userId);
             }
             console.log(`[Game] Player disconnected: ${userId} from scene ${oldScene}`);
         }
         
-        // --- [기존] Chat Logic (변경 없음) ---
         const userInfo = onlineUsers.get(userId);
         if (userInfo) {
             userInfo.socketIds.delete(socket.id);
