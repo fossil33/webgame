@@ -732,11 +732,30 @@ app.get('/playerData/inventory/:userId', async (req, res) => {
         const invSql = `
           SELECT
             inv.inventory_slot AS slotIndex,
-            inv.inventory_type AS slotType,
+            CASE
+                WHEN inv.inventory_type IS NOT NULL AND inv.inventory_type != ''
+                THEN inv.inventory_type
+                ELSE (
+                    CASE 
+                      WHEN TRIM(i.item_type) = 'Weapon' THEN 'Equipment'
+                      WHEN TRIM(i.item_type) = 'Armor' THEN 'Equipment'
+                      WHEN TRIM(i.item_type) = 'Helmet' THEN 'Equipment' 
+                      WHEN TRIM(i.item_type) = 'Gloves' THEN 'Equipment'
+                      WHEN TRIM(i.item_type) = 'Boots' THEN 'Equipment'
+                      WHEN TRIM(i.item_type) = 'Potion' THEN 'Consumption'
+                      WHEN TRIM(i.item_type) = 'Food' THEN 'Consumption'
+                      WHEN TRIM(i.item_type) = 'Scroll' THEN 'Consumption'
+                      WHEN TRIM(i.item_type) = 'Profile' THEN 'Profile'
+                      WHEN TRIM(i.item_type) = 'Quick' THEN 'Quick'
+                      ELSE 'Other'
+                    END
+                )
+            END AS slotType,
             inv.item_id AS itemId,
             inv.quantity AS itemCount,
             inv.item_spec
           FROM inventory inv
+          LEFT JOIN items i ON inv.item_id = i.item_id 
           WHERE inv.character_id = ?
             AND inv.item_id IS NOT NULL
             AND inv.item_id != 0
@@ -748,7 +767,7 @@ app.get('/playerData/inventory/:userId', async (req, res) => {
 
         const inventory = results.map(item => ({
             slotIndex: item.slotIndex,
-            slotType: item.slotType, // DB에서 읽은 'Equipment', 'Quick' 등이 그대로 전달됨
+            slotType: item.slotType, 
             itemId: item.itemId,
             itemCount: item.itemCount,
             itemSpec: safeJSON(item.item_spec, {}) 
