@@ -87,11 +87,12 @@ const io = new Server(server, {
 const onlineUsers = new Map();
 const socketIdToUserId = new Map();
 const gamePlayers = {};
+const SINGLE_PLAYER_SCENES = [];
 
 io.on('connection', (socket) => {
     console.log(`[Socket.IO] User connected: ${socket.id}`);
 
-    // 웹 채팅
+    // --- (웹 채팅 로직: 변경 없음) ---
     socket.on('login', async ({ userId, nickname }) => { 
         console.log(`[Chat] User logged in: ${nickname} (${userId})`);
         if (!onlineUsers.has(userId)) {
@@ -121,70 +122,162 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 게임 멀티플레이
+    // --- [수정됨] 게임 멀티플레이 ---
+
     socket.on('initialize', async (userId) => { 
         console.log(`[Game] Initializing player: ${userId} for socket ${socket.id}`);
         socketIdToUserId.set(socket.id, userId);
-        const sql = `SELECT position_x, position_y, position_z, rotation_y FROM characters WHERE user_id = ?`;
+
+        const sql = `SELECT position_x, position_y, position_z, rotation_y, current_scene_name FROM characters WHERE user_id = ?`;
         try {
             const [results] = await dbPool.query(sql, [userId]); 
             let playerData;
             if (results.length === 0) {
                 console.log(`[Game] DB에서 ${userId}의 위치 정보를 찾지 못해 기본값으로 설정합니다.`);
-                playerData = { id: userId, position: { x: -15.76, y: 3.866, z: 49.78 }, rotation: { x: 0, y: 0, z: 0 } };
+                playerData = { 
+                    id: userId, 
+                    position: { x: -15.76, y: 3.866, z: 49.78 }, 
+                    rotation: { x: 0, y: 0, z: 0 },
+                    currentSceneName: 'Main'
+                };
             } else {
                 const dbPos = results[0];
                 playerData = { 
-    id: userId, 
-    position: { 
-        x: dbPos.position_x || -15.76, 
-        y: dbPos.position_y || 3.866, 
-        z: dbPos.position_z || 49.78 
-    }, 
-    rotation: { x: 0, y: dbPos.rotation_y || 0, z: 0 } // rotation_y도 예방 차원에서 || 0 추가
-};
+                    id: userId, 
+                    position: { 
+                        x: dbPos.position_x || -15.76, 
+                        y: dbPos.position_y || 3.866, 
+                        z: dbPos.position_z || 49.78 
+                    }, 
+                    rotation: { x: 0, y: dbPos.rotation_y || 0, z: 0 },
+                    currentSceneName: dbPos.current_scene_name || 'Main' 
+                };
             }
-            gamePlayers[userId] = playerData;
+            gamePlayers[userId] = playerData; 
             socket.emit('initializeComplete', playerData);
-            socket.broadcast.emit('newPlayer', playerData);
         } catch (err) {
             console.error('[Game] Initialize DB error:', err);
-             // DB 오류 시 기본값으로라도 초기화 시도
-            const playerData = { id: userId, position: { x: -15.76, y: 3.866, z: 49.78 }, rotation: { x: 0, y: 0, z: 0 } };
+            const playerData = { 
+                id: userId, 
+                position: { x: -15.76, y: 3.866, z: 49.78 }, 
+                rotation: { x: 0, y: 0, z: 0 },
+                currentSceneName: 'Main'
+            };
             gamePlayers[userId] = playerData;
             socket.emit('initializeComplete', playerData);
-            socket.broadcast.emit('newPlayer', playerData);
         }
     });
+
     socket.on('LoadSceneComplete', () => {
         const userId = socketIdToUserId.get(socket.id);
-        if (!userId) return;
-        const otherPlayers = Object.values(gamePlayers).filter(p => p.id !== userId);
-        socket.emit('currentPlayers', { players: otherPlayers });
+        if (!userId || !gamePlayers[userId]) return;
+
+        const playerData = gamePlayers[userId];
+        const sceneName = playerData.currentSceneName;
+
+        if (sceneName && !SINGLE_PLAYER_SCENES.includes(sceneName)) {
+            socket.join(sceneName); 
+            console.log(`[Game] Player ${userId} joined room: ${sceneName}`);
+
+            const otherPlayers = Object.values(gamePlayers).filter(p =>
+                p.id !== userId && p.currentSceneName === sceneName
+            );
+            
+            socket.emit('currentPlayers', { players: otherPlayers });
+            
+            socket.to(sceneName).emit('newPlayer', playerData);
+
+        } else {
+            // 1인용 씬일 경우
+            console.log(`[Game] Player ${userId} entered single-player scene: ${sceneName}`);
+            socket.emit('currentPlayers', { players: [] }); 
+        }
     });
+
+    socket.on('requestSceneChange', (data) => {
+        const userId = socketIdToUserId.get(socket.id);
+        if (!userId || !gamePlayers[userId]) {
+            console.error(`[SceneChange] User not found for socket ${socket.id}`);
+            return;
+        }
+
+        try {
+            const newScene = data.scene;
+            const newPos = data.pos; // {x, y, z} 객체여야 함
+            const oldScene = gamePlayers[userId].currentSceneName;
+
+            // DB 갱신 (비동기 처리, 기다리지 않음)
+            dbPool.query(
+                `UPDATE characters SET current_scene_name = ?, position_x = ?, position_y = ?, position_z = ? WHERE user_id = ?`,
+                [newScene, newPos.x, newPos.y, newPos.z, userId]
+            ).catch(err => console.error("[DB SceneChange] Failed to update character:", err));
+
+            // 서버 메모리(gamePlayers) 갱신
+            gamePlayers[userId].currentSceneName = newScene;
+            gamePlayers[userId].position = newPos;
+
+            if (oldScene && !SINGLE_PLAYER_SCENES.includes(oldScene)) {
+                socket.leave(oldScene);
+                // 이전 씬에 있던 다른 플레이어들에게 "이 유저가 떠났다"고 알림
+                socket.to(oldScene).emit('playerDisconnected', userId);
+            }
+            
+            console.log(`[SceneChange] User ${userId} moving from ${oldScene} to ${newScene}`);
+
+            socket.emit('respawn'); 
+
+        } catch (e) {
+            console.error("[SceneChange] Failed to parse request:", e);
+        }
+    });
+
     socket.on('playerMovement', (movementData) => {
         const userId = socketIdToUserId.get(socket.id);
         if (!userId || !gamePlayers[userId]) return;
-        gamePlayers[userId].position = movementData.position;
-        gamePlayers[userId].rotation = movementData.rotation;
-        socket.broadcast.emit('updatePlayerMovement', { id: userId, ...movementData });
-    });
-    socket.on('playerAnimation', (animData) => {
-        const userId = socketIdToUserId.get(socket.id);
-        if (!userId) return;
-        socket.broadcast.emit('updatePlayerAnimation', { id: userId, ...animData });
+
+        // 서버 메모리에 위치 정보 업데이트
+        const playerData = gamePlayers[userId];
+        playerData.position = movementData.position;
+        playerData.rotation = movementData.rotation;
+
+        const sceneName = playerData.currentSceneName;
+        
+        // 1인용 씬이 아닐 경우에만 룸에 브로드캐스트
+        if (sceneName && !SINGLE_PLAYER_SCENES.includes(sceneName)) {
+            socket.to(sceneName).emit('updatePlayerMovement', { id: userId, ...movementData });
+        }
     });
 
-    // 연결 종료
+    socket.on('playerAnimation', (animData) => {
+        const userId = socketIdToUserId.get(socket.id);
+        if (!userId || !gamePlayers[userId]) return;
+
+        const playerData = gamePlayers[userId];
+        const sceneName = playerData.currentSceneName;
+
+        // 1인용 씬이 아닐 경우에만 룸에 브로드캐스트
+        if (sceneName && !SINGLE_PLAYER_SCENES.includes(sceneName)) {
+            socket.to(sceneName).emit('updatePlayerAnimation', { id: userId, ...animData });
+        }
+    });
+
     socket.on('disconnect', () => {
         console.log(`[Socket.IO] User disconnected: ${socket.id}`);
         const userId = socketIdToUserId.get(socket.id);
         if (!userId) return;
-        if (gamePlayers[userId]) {
-            delete gamePlayers[userId];
-            io.emit('playerDisconnected', userId);
-            console.log(`[Game] Player disconnected: ${userId}`);
+
+       
+        const playerData = gamePlayers[userId];
+        if (playerData) {
+            const oldScene = playerData.currentSceneName; // [추가] 떠나기 전 씬 이름
+            delete gamePlayers[userId]; // [수정] 메모리에서 삭제
+
+            if (oldScene && !SINGLE_PLAYER_SCENES.includes(oldScene)) {
+                io.to(oldScene).emit('playerDisconnected', userId);
+            }
+            console.log(`[Game] Player disconnected: ${userId} from scene ${oldScene}`);
         }
+        
         const userInfo = onlineUsers.get(userId);
         if (userInfo) {
             userInfo.socketIds.delete(socket.id);
@@ -563,8 +656,9 @@ app.get('/playerData/inventory/:userId', async (req, res) => {
         if (characters.length === 0) return res.status(404).json({ message: '캐릭터를 찾을 수 없습니다.' });
         const characterId = characters[0].character_id;
         console.log(`[inventory Check] 2. characterId: ${characterId}`);
+
         const invSql = `
-SELECT
+          SELECT
             inv.inventory_slot AS slotIndex,
             CASE 
               WHEN TRIM(i.item_type) = 'Weapon' THEN 'Equipment'
@@ -579,9 +673,9 @@ SELECT
               WHEN TRIM(i.item_type) = 'Quick' THEN 'Quick'
               ELSE 'Other'
             END AS slotType,
-            END AS slotType,
             inv.item_id AS itemId,
-            inv.quantity AS itemCount
+            inv.quantity AS itemCount,
+            inv.item_spec
           FROM inventory inv
           LEFT JOIN items i ON inv.item_id = i.item_id 
           WHERE inv.character_id = ?
@@ -592,7 +686,15 @@ SELECT
 
         const [results] = await dbPool.query(invSql, [characterId]); 
         console.log(`[inventory Check] 3. ${results.length} items found.`);
-        const inventory = results.map(item => ({ ...item, itemSpec: {} }));
+
+        const inventory = results.map(item => ({
+            slotIndex: item.slotIndex,
+            slotType: item.slotType,
+            itemId: item.itemId,
+            itemCount: item.itemCount,
+            itemSpec: safeJSON(item.item_spec, {}) 
+        }));
+
         console.log('[inventory Check] 4. Response data:', { inventory: inventory });
         res.json({ inventory: inventory });
     } catch (err) {
