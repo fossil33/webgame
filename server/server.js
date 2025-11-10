@@ -775,49 +775,64 @@ app.get('/playerData/inventory/:userId', async (req, res) => {
     }
 });
 
-// 인벤토리 저장
+// 인벤토리 저장 (최종 수정본)
 app.post('/playerData/inventory/:userId', async (req, res) => { 
     const { userId } = req.params;
     const slotData = req.body;
+    
+
+    const { slotType, slotIndex, itemId, itemCount, itemSpec, hasItem } = slotData;
+
+    if (typeof slotType === 'undefined' || typeof slotIndex === 'undefined') {
+        console.error('inventory save error: slotType 또는 slotIndex가 없습니다.', slotData);
+        return res.status(400).json({ success: false, message: '슬롯 정보 누락' });
+    }
+
+    let connection;
     try {
         const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]); 
         if (characters.length === 0) return res.status(404).json({ message: '캐릭터를 찾을 수 없습니다.' });
         
         const characterId = characters[0].character_id;
 
-        if (slotData.hasItem === false) {
-            await dbPool.query('DELETE FROM inventory WHERE character_id = ? AND inventory_slot = ?', [characterId, slotData.slotIndex]); 
-            res.status(200).json({ success: true, message: '인벤토리 슬롯 초기화 성공' });
-        
-        } else {
-            const itemSpecJson = (slotData.itemSpec) ? JSON.stringify(slotData.itemSpec) : null;
+        connection = await dbPool.getConnection();
+        await connection.beginTransaction();
 
-            const upsertSql = `
+        const deleteSql = `DELETE FROM inventory WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ?`;
+        await connection.query(deleteSql, [characterId, slotType, slotIndex]);
+
+        if (hasItem !== false && itemId) {
+            const itemSpecJson = (itemSpec) ? JSON.stringify(itemSpec) : null;
+
+            const insertSql = `
                 INSERT INTO inventory 
-                    (character_id, inventory_slot, item_id, quantity, item_spec) 
+                    (character_id, inventory_type, inventory_slot, item_id, quantity, item_spec) 
                 VALUES 
-                    (?, ?, ?, ?, ?) 
-                ON DUPLICATE KEY UPDATE 
-                    item_id = VALUES(item_id), 
-                    quantity = VALUES(quantity), 
-                    item_spec = IF(VALUES(item_spec) IS NOT NULL, VALUES(item_spec), inventory.item_spec)
-            `; 
-
-            await dbPool.query(upsertSql, [
-                characterId, 
-                slotData.slotIndex, 
-                slotData.itemId, 
-                slotData.itemCount, 
-                itemSpecJson 
-            ]); 
+                    (?, ?, ?, ?, ?, ?)
+            `;
             
-            res.status(201).json({ success: true, message: '인벤토리 업데이트 성공' });
+            await connection.query(insertSql, [
+                characterId,
+                slotType,
+                slotIndex,
+                itemId,
+                itemCount,
+                itemSpecJson
+            ]);
         }
+
+        await connection.commit();
+        res.status(201).json({ success: true, message: '인벤토리 업데이트 성공' });
+
     } catch (err) {
+        if (connection) await connection.rollback(); 
         console.error('inventory save error:', err);
         res.status(500).json({ success: false, message: 'DB 오류' });
+    } finally {
+        if (connection) connection.release(); 
     }
 });
+
 // 거래소 API
 // 전체 판매 목록
 app.get('/market/items', async (req, res) => {
