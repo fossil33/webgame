@@ -391,17 +391,7 @@ app.post('/auth/kakao', async (req, res) => {
 const [characterResult] = await connection.query(sql, [id, nickname]);
             const newCharacterId = characterResult.insertId;
             await connection.query(`INSERT INTO characterstats (character_id) VALUES (?)`, [newCharacterId]);
-            await connection.query(`
-   INSERT INTO inventory (character_id, inventory_type, inventory_slot, item_id, quantity)
-   SELECT ?, 
-          CASE 
-           WHEN i.item_type IN ('Weapon','Armor','Helmet','Gloves','Boots') THEN 'Equipment'
-           WHEN i.item_type IN ('Potion','Food','Scroll') THEN 'Consumption'
-           ELSE 'Other'
-          END,
-          1, 101, 1
-   FROM items i WHERE i.item_id = 101
- `, [newCharacterId]);
+            await connection.query(`INSERT INTO inventory (character_id, inventory_slot, item_id) VALUES (?, 1, 101)`, [newCharacterId]);
         }
 
         await connection.commit();
@@ -791,6 +781,7 @@ app.get('/playerData/inventory/:userId', async (req, res) => {
     }
 });
 
+// 인벤토리 저장 (최종 수정본)
 // 인벤토리 저장 (Deadlock-safe 버전)
 app.post('/playerData/inventory/:userId', async (req, res) => { 
     const { userId } = req.params;
@@ -864,7 +855,6 @@ if (itemIdNum >= 1 && itemIdNum <= 9) {
     }
 });
 
-
 // 거래소 API
 // 전체 판매 목록
 app.get('/market/items', async (req, res) => {
@@ -894,6 +884,7 @@ app.get('/market/items/:userId', async (req, res) => {
         res.status(500).json({ message: 'DB 오류' });
     }
 });
+// 아이템 판매 등록
 // 아이템 판매 등록
 app.post('/market/items', async (req, res) => {
     console.log("판매 요청 데이터:", req.body);
