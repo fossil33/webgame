@@ -391,7 +391,14 @@ app.post('/auth/kakao', async (req, res) => {
 const [characterResult] = await connection.query(sql, [id, nickname]);
             const newCharacterId = characterResult.insertId;
             await connection.query(`INSERT INTO characterstats (character_id) VALUES (?)`, [newCharacterId]);
-            await connection.query(`INSERT INTO inventory (character_id, inventory_slot, item_id) VALUES (?, 1, 101)`, [newCharacterId]);
+            const starterItemSpec = JSON.stringify({ name: "Basic Sword", damage: 5 }); // 예시 스펙
+            const starterItemSql = `
+                INSERT INTO inventory 
+                    (character_id, inventory_type, inventory_slot, item_id, quantity, item_spec) 
+                VALUES 
+                    (?, 'Equipment', 1, 101, 1, ?)
+            `;
+await connection.query(starterItemSql, [newCharacterId, starterItemSpec]);
         }
 
         await connection.commit();
