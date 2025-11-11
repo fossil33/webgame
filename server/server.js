@@ -898,8 +898,10 @@ app.post('/market/items', async (req, res) => {
         const seller_character_id = characters[0].character_id;
         
         // (4) 인벤토리에서 해당 아이템 삭제 (hasItem=false 로직이 아님)
-        const deleteSql = `DELETE FROM inventory WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ? AND item_id = ?`;
-        const [deleteResult] = await connection.query(deleteSql, [seller_character_id, slotType, slotIndex, ItemId]);
+        const deleteSql = `DELETE FROM inventory WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ?`;
+        
+        // [수정됨] 파라미터에서 ItemId를 제거합니다.
+        const [deleteResult] = await connection.query(deleteSql, [seller_character_id, slotType, slotIndex]);
 
         // (5) 아이템이 실제로 삭제되었는지 확인
         if (deleteResult.affectedRows === 0) {
