@@ -900,19 +900,21 @@ app.post('/market/items', async (req, res) => {
         return res.status(400).json({ success: false, message: '판매 아이템의 원본 슬롯 정보(slotType, slotIndex)가 누락되었습니다.' });
     }
 
-    // 🔹 slotType 정규화 (숫자→문자열)
+// ✅ 수정 후 (이 코드로 덮어쓰세요)
    let normalizedSlotType = slotType;
    if (typeof normalizedSlotType === 'number' || /^[0-9]+$/.test(normalizedSlotType)) {
+     // [수정됨] 클라이언트 탭 인덱스(0, 1, 2)와 버그(5)를 모두 처리
      const typeMap = {
-       1: 'Consumption',
-       2: 'Equipment',
+       0: 'Equipment',   // Equipment 탭 (인덱스 0)
+       1: 'Consumption', // Consumption 탭 (인덱스 1)
+       2: 'Other',       // Other 탭 (인덱스 2)
        3: 'Profile',
        4: 'Quick',
-       5: 'Equipment'
+       5: 'Equipment'    // 클라이언트 판매 버그 (slotType: 5)
      };
-     normalizedSlotType = typeMap[normalizedSlotType] || 'Other';
+     // [수정됨] 0이 'Other'가 되지 않도록 '??' 연산자 사용
+     normalizedSlotType = typeMap[normalizedSlotType] ?? 'Other';
    }
-
     console.log(`[POST] ${userId} 판매 등록 요청 (Slot: ${slotType}/${slotIndex})`);
     
     const specObjectToSave = ItemData || itemSpec || {}; 
