@@ -391,13 +391,14 @@ app.post('/auth/kakao', async (req, res) => {
 const [characterResult] = await connection.query(sql, [id, nickname]);
             const newCharacterId = characterResult.insertId;
             await connection.query(`INSERT INTO characterstats (character_id) VALUES (?)`, [newCharacterId]);
-            const starterItemSpec = JSON.stringify({ name: "Basic Sword", damage: 5 }); // 예시 스펙
-            const starterItemSql = `
-                INSERT INTO inventory 
-                    (character_id, inventory_type, inventory_slot, item_id, quantity, item_spec) 
-                VALUES 
-                    (?, 'Equipment', 1, 101, 1, ?)
-            `;
+// [수정됨] inventory_type을 '1' (숫자 문자열)로, slot을 0으로 지정합니다.
+const starterItemSpec = JSON.stringify({ name: "Basic Sword", damage: 5 }); 
+const starterItemSql = `
+    INSERT INTO inventory 
+        (character_id, inventory_type, inventory_slot, item_id, quantity, item_spec) 
+    VALUES 
+        (?, '1', 0, 101, 1, ?)
+`;
 await connection.query(starterItemSql, [newCharacterId, starterItemSpec]);
         }
 
@@ -725,7 +726,6 @@ app.delete('/api/posts/:id', async (req, res) => {
         res.status(500).json({ message: 'DB 오류 발생' });
     }
 });
-
 // 인벤토리 조회
 app.get('/playerData/inventory/:userId', async (req, res) => { 
     const { userId } = req.params;
@@ -736,33 +736,15 @@ app.get('/playerData/inventory/:userId', async (req, res) => {
         const characterId = characters[0].character_id;
         console.log(`[inventory Check] 2. characterId: ${characterId}`);
 
+        // [수정됨] 복잡한 CASE 문을 제거하고 DB의 inventory_type을 그대로 사용합니다.
         const invSql = `
           SELECT
             inv.inventory_slot AS slotIndex,
-            CASE
-                WHEN inv.inventory_type IS NOT NULL AND inv.inventory_type != ''
-                THEN inv.inventory_type
-                ELSE (
-                    CASE 
-                      WHEN TRIM(i.item_type) = 'Weapon' THEN 'Equipment'
-                      WHEN TRIM(i.item_type) = 'Armor' THEN 'Equipment'
-                      WHEN TRIM(i.item_type) = 'Helmet' THEN 'Equipment' 
-                      WHEN TRIM(i.item_type) = 'Gloves' THEN 'Equipment'
-                      WHEN TRIM(i.item_type) = 'Boots' THEN 'Equipment'
-                      WHEN TRIM(i.item_type) = 'Potion' THEN 'Consumption'
-                      WHEN TRIM(i.item_type) = 'Food' THEN 'Consumption'
-                      WHEN TRIM(i.item_type) = 'Scroll' THEN 'Consumption'
-                      WHEN TRIM(i.item_type) = 'Profile' THEN 'Profile'
-                      WHEN TRIM(i.item_type) = 'Quick' THEN 'Quick'
-                      ELSE 'Other'
-                    END
-                )
-            END AS slotType,
+            inv.inventory_type AS slotType, 
             inv.item_id AS itemId,
             inv.quantity AS itemCount,
             inv.item_spec
           FROM inventory inv
-          LEFT JOIN items i ON inv.item_id = i.item_id 
           WHERE inv.character_id = ?
             AND inv.item_id IS NOT NULL
             AND inv.item_id != 0
@@ -774,7 +756,7 @@ app.get('/playerData/inventory/:userId', async (req, res) => {
 
         const inventory = results.map(item => ({
             slotIndex: item.slotIndex,
-            slotType: item.slotType, 
+            slotType: item.slotType, // DB 값을 그대로 전송
             itemId: item.itemId,
             itemCount: item.itemCount,
             itemSpec: safeJSON(item.item_spec, {}) 
@@ -787,7 +769,6 @@ app.get('/playerData/inventory/:userId', async (req, res) => {
         res.status(500).json({ message: '서버 오류' });
     }
 });
-
 // 인벤토리 저장 (최종 수정본)
 app.post('/playerData/inventory/:userId', async (req, res) => { 
     const { userId } = req.params;
@@ -903,28 +884,26 @@ app.post('/market/items', async (req, res) => {
         const seller_character_id = characters[0].character_id;
         
         // (4) 인벤토리에서 해당 아이템 삭제 (1차 시도: 정확한 타입)
-        const deleteSql_Strict = `DELETE FROM inventory WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ?`;
-        let [deleteResult] = await connection.query(deleteSql_Strict, [seller_character_id, slotType, slotIndex]);
+        // [수정] 1차 시도는 item_id까지 검사합니다.
+        const deleteSql_Strict = `DELETE FROM inventory WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ? AND item_id = ?`;
+        let [deleteResult] = await connection.query(deleteSql_Strict, [seller_character_id, slotType, slotIndex, ItemId]);
 
-        // (5) [수정됨] 1차 삭제 실패 시, NULL/빈 타입으로 2차 시도
+        // (5) [수정됨] 1차 삭제 실패 시, 모든 종류의 잘못된 타입으로 2차 시도
         if (deleteResult.affectedRows === 0) {
-            console.warn(`[Market] Strict delete failed for ${userId} (Slot: ${slotType}/${slotIndex}). Retrying with lenient type check (NULL/empty).`);
+            console.warn(`[Market] Strict delete failed for ${userId} (Slot: ${slotType}/${slotIndex}). Retrying with lenient type check (0/NULL/empty/Equipment).`);
             
-            // 2차 시도: slotIndex는 일치하지만 type이 NULL이거나 빈 경우
-            const deleteSql_Leniency = `DELETE FROM inventory WHERE character_id = ? AND inventory_slot = ? AND (inventory_type IS NULL OR inventory_type = '')`;
+            const deleteSql_Leniency = `DELETE FROM inventory 
+                                        WHERE character_id = ? 
+                                          AND inventory_slot = ? 
+                                          AND item_id = ?
+                                          AND (inventory_type IS NULL OR inventory_type = '' OR inventory_type = '0' OR inventory_type = 'Equipment')`;
             
-            // [참고] 2차 시도에서는 item_id도 함께 검사하여 더 안전하게 삭제할 수도 있습니다.
-            // const deleteSql_Leniency_Safer = `DELETE FROM inventory WHERE character_id = ? AND inventory_slot = ? AND item_id = ? AND (inventory_type IS NULL OR inventory_type = '')`;
-            // [deleteResult] = await connection.query(deleteSql_Leniency_Safer, [seller_character_id, slotIndex, ItemId]);
-            
-            // 현재 로직(PK 기준)을 따르기 위해 2차 시도도 type만 완화합니다.
-            [deleteResult] = await connection.query(deleteSql_Leniency, [seller_character_id, slotIndex]);
+            [deleteResult] = await connection.query(deleteSql_Leniency, [seller_character_id, slotIndex, ItemId]);
         }
 
 
-        // (6) [수정됨] 1, 2차 모두 실패했는지 최종 확인
+        // (6) 1, 2차 모두 실패했는지 최종 확인
         if (deleteResult.affectedRows === 0) {
-            // "존재하지 않는 아이템" 로그의 원인
             console.warn(`[Market] ${userId}가 존재하지 않는 인벤토리 아이템 판매 시도 (Slot: ${slotType}/${slotIndex}, Item: ${ItemId})`);
             throw new Error('인벤토리에서 해당 아이템을 찾을 수 없습니다.');
         }
@@ -933,9 +912,9 @@ app.post('/market/items', async (req, res) => {
         const addItemSql = 'INSERT INTO marketlistings (seller_character_id, item_id, quantity, price, item_spec, listed_at, expires_at) VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 DAY))';
         const [result] = await connection.query(addItemSql, [seller_character_id, ItemId, itemCount, price, itemSpecJson]); 
         
-        await connection.commit(); // (8) 모든 작업이 성공했으므로 커밋
+        await connection.commit(); // (8)
 
-        // (9) 클라이언트가 판매 슬롯을 비울 수 있도록 성공 응답 전송
+        // (9)
         res.status(200).json({ 
             success: true, 
             message: '아이템 등록 성공!', 
@@ -948,7 +927,7 @@ app.post('/market/items', async (req, res) => {
         });
 
     } catch (err) {
-        if (connection) await connection.rollback(); // (10) 오류 발생 시 롤백
+        if (connection) await connection.rollback(); // (10)
         console.error("거래소 등록 실패:", err);
         
         const clientMessage = (err.message === '인벤토리에서 해당 아이템을 찾을 수 없습니다.') 
@@ -957,7 +936,7 @@ app.post('/market/items', async (req, res) => {
 
         res.status(500).json({ success: false, message: clientMessage });
     } finally {
-        if (connection) connection.release(); // (11) 커넥션 반환
+        if (connection) connection.release(); // (11)
     }
 });
 
