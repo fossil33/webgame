@@ -785,51 +785,52 @@ app.get('/playerData/inventory/:userId', async (req, res) => {
 });
 
 // 인벤토리 저장 (최종 수정본)
-// 인벤토리 저장 (Deadlock-safe 버전)
 app.post('/playerData/inventory/:userId', async (req, res) => { 
     const { userId } = req.params;
     const slotData = req.body;
     const { slotType, slotIndex, itemId, itemCount, itemSpec, hasItem } = slotData;
 
-    // (2) 필수 값(원본 슬롯 정보) 검증
-if (typeof slotType === 'undefined' || typeof slotIndex === 'undefined') {
-  console.error('Market POST error: slotType 또는 slotIndex가 없습니다.', req.body);
-  return res.status(400).json({ success: false, message: '판매 아이템의 원본 슬롯 정보(slotType, slotIndex)가 누락되었습니다.' });
-}
+    if (typeof slotType === 'undefined' || typeof slotIndex === 'undefined') {
+        console.error('Inventory POST error: slotType 또는 slotIndex가 없습니다.', req.body);
+        return res.status(400).json({ success: false, message: '슬롯 정보(slotType, slotIndex)가 누락되었습니다.' });
+    }
 
-// 🚨 [수정 1] 808라인부터 821라인까지를 이 코드로 덮어쓰세요
-// [새로운 수정] slotType이 아닌 itemId를 기준으로 타입을 강제합니다.
-// [최종 수정] slotType을 최우선으로 신뢰하되 ('Equipment', 'Quick'), 빈 값일 경우에만 itemId로 추측합니다.
-let normalizedSlotType;
-const clientSlotType = slotData.slotType; // 원본 slotType
-const itemIdNum = parseInt(itemId, 10);
+    // [최종 수정 로직] slotType(숫자/문자)을 itemId보다 먼저 확인합니다.
+    let normalizedSlotType;
+    
+    // ▼▼▼ /inventory API용 변수 설정 ▼▼▼
+    const clientSlotType = slotData.slotType; 
+    const itemIdNum = parseInt(itemId, 10);
+    // ▲▲▲ ▲▲▲ ▲▲▲
 
-// 1. 클라이언트가 'Equipment' 또는 'Quick'이라고 명시적으로 보냈다면, 100% 신뢰합니다.
-if (clientSlotType === 'Equipment' || clientSlotType === 'Quick') {
-    normalizedSlotType = clientSlotType;
-} 
-// 2. 그 외의 경우 (숫자, "Consumption", "Other", "", NULL 등)
-else {
-    // 2a. ItemId를 기준으로 타입을 강제/추측합니다. (기존 로직)
-    if (itemIdNum >= 1 && itemIdNum <= 9) { // Potions etc.
-        normalizedSlotType = 'Consumption';
-    } else if ((itemIdNum >= 101 && itemIdNum <= 110) || // Weapons
-               (itemIdNum >= 201 && itemIdNum <= 210) || // Armor
-               (itemIdNum >= 301 && itemIdNum <= 310)) { // Helmets
-        normalizedSlotType = 'Equipment';
+    const typeMap = { 0: 'Equipment', 1: 'Consumption', 2: 'Other', 3: 'Profile', 4: 'Quick', 5: 'Equipment' };
+
+    // 1. Client가 'Equipment' 또는 'Quick' 문자를 보낸 경우 (최우선)
+    if (clientSlotType === 'Equipment' || clientSlotType === 'Quick') {
+        normalizedSlotType = clientSlotType;
     } 
-    // 2b. ItemId로도 모르겠으면, 클라이언트가 보낸 값을 (숫자->문자) 변환하여 사용합니다. (기존 Fallback)
+    // 2. Client가 숫자를 보낸 경우 (차선)
+    else if (typeof clientSlotType === 'number' || /^[0-9]+$/.test(clientSlotType)) {
+        normalizedSlotType = typeMap[clientSlotType] ?? 'Other';
+    }
+    // 3. Client가 'Consumption', 'Other', '' 등을 보낸 경우 (itemId로 추측)
     else {
-        const typeMap = { 0: 'Equipment', 1: 'Consumption', 2: 'Other', 3: 'Profile', 4: 'Quick', 5: 'Equipment' };
-        let nSlotType = clientSlotType;
-        if (typeof nSlotType === 'number' || /^[0-9]+$/.test(nSlotType)) {
-             normalizedSlotType = typeMap[nSlotType] ?? 'Other';
+        if (clientSlotType) {
+            normalizedSlotType = clientSlotType; // 'Consumption', 'Other' 등은 신뢰
         } else {
-             // "Consumption", "Other" 등은 그대로 통과, 빈 문자열은 "Other"로
-             normalizedSlotType = nSlotType || 'Other';
+            // Client가 '' 또는 NULL을 보냈을 때만 itemId로 추측
+            if (itemIdNum >= 1 && itemIdNum <= 9) { // Potions
+                normalizedSlotType = 'Consumption';
+            } else if ((itemIdNum >= 101 && itemIdNum <= 110) || // Weapons
+                       (itemIdNum >= 201 && itemIdNum <= 210) || // Armor
+                       (itemIdNum >= 301 && itemIdNum <= 310)) { // Helmets
+                normalizedSlotType = 'Equipment';
+            } else {
+                normalizedSlotType = 'Other'; // 그 외
+            }
         }
     }
-}
+    // --- 로직 수정 끝 ---
 
     let connection;
     try {
@@ -869,7 +870,6 @@ else {
         if (connection) connection.release();
     }
 });
-
 // 거래소 API
 // 전체 판매 목록
 app.get('/market/items', async (req, res) => {
@@ -899,50 +899,64 @@ app.get('/market/items/:userId', async (req, res) => {
         res.status(500).json({ message: 'DB 오류' });
     }
 });
-// 아이템 판매 등록
+
 // 아이템 판매 등록
 app.post('/market/items', async (req, res) => {
     console.log("판매 요청 데이터:", req.body);
     
-    // (1) 클라이언트에서 판매 아이템의 원본 슬롯 정보를 받아야 합니다.
     const { userId, ItemId, ItemData, itemSpec, itemCount, price, slotType, slotIndex } = req.body;
     
-    // (2) 필수 값(원본 슬롯 정보) 검증
     if (typeof slotType === 'undefined' || typeof slotIndex === 'undefined') {
         console.error('Market POST error: slotType 또는 slotIndex가 없습니다.', req.body);
         return res.status(400).json({ success: false, message: '판매 아이템의 원본 슬롯 정보(slotType, slotIndex)가 누락되었습니다.' });
     }
 
+    // [최종 수정 로직] slotType(숫자/문자)을 itemId보다 먼저 확인합니다.
+    let normalizedSlotType;
 
-// [새로운 수정] slotType이 아닌 ItemId를 기준으로 타입을 강제합니다.
-const itemIdNum = parseInt(ItemId, 10); // (변수명이 ItemId 입니다)
-let normalizedSlotType;
+    // ▼▼▼ /market API용 변수 설정 ▼▼▼
+    const clientSlotType = slotType; 
+    const itemIdNum = parseInt(ItemId, 10);
+    // ▲▲▲ ▲▲▲ ▲▲▲
 
-if (itemIdNum >= 1 && itemIdNum <= 9) {
-    normalizedSlotType = 'Consumption';
-} else if ((itemIdNum >= 101 && itemIdNum <= 110) || 
-           (itemIdNum >= 201 && itemIdNum <= 210) || 
-           (itemIdNum >= 301 && itemIdNum <= 310)) {
-    normalizedSlotType = 'Equipment';
-} else {
-    // ItemId로 알 수 없는 'Other' 아이템 등은 기존 로직을 fallback으로 사용
     const typeMap = { 0: 'Equipment', 1: 'Consumption', 2: 'Other', 3: 'Profile', 4: 'Quick', 5: 'Equipment' };
-    let nSlotType = slotType;
-    if (typeof nSlotType === 'number' || /^[0-9]+$/.test(nSlotType)) {
-         normalizedSlotType = typeMap[nSlotType] ?? 'Other';
-    } else {
-         normalizedSlotType = nSlotType || 'Other';
+
+    // 1. Client가 'Equipment' 또는 'Quick' 문자를 보낸 경우 (최우선)
+    if (clientSlotType === 'Equipment' || clientSlotType === 'Quick') {
+        normalizedSlotType = clientSlotType;
+    } 
+    // 2. Client가 숫자를 보낸 경우 (차선)
+    else if (typeof clientSlotType === 'number' || /^[0-9]+$/.test(clientSlotType)) {
+        normalizedSlotType = typeMap[clientSlotType] ?? 'Other';
     }
-}
-    console.log(`[POST] ${userId} 판매 등록 요청 (Slot: ${slotType}/${slotIndex})`);
+    // 3. Client가 'Consumption', 'Other', '' 등을 보낸 경우 (itemId로 추측)
+    else {
+        if (clientSlotType) {
+            normalizedSlotType = clientSlotType; // 'Consumption', 'Other' 등은 신뢰
+        } else {
+            // Client가 '' 또는 NULL을 보냈을 때만 itemId로 추측
+            if (itemIdNum >= 1 && itemIdNum <= 9) { // Potions
+                normalizedSlotType = 'Consumption';
+            } else if ((itemIdNum >= 101 && itemIdNum <= 110) || // Weapons
+                       (itemIdNum >= 201 && itemIdNum <= 210) || // Armor
+                       (itemIdNum >= 301 && itemIdNum <= 310)) { // Helmets
+                normalizedSlotType = 'Equipment';
+            } else {
+                normalizedSlotType = 'Other'; // 그 외
+            }
+        }
+    }
+    // --- 로직 수정 끝 ---
+
+    console.log(`[POST] ${userId} 판매 등록 요청 (Slot: ${slotType}/${slotIndex} -> ${normalizedSlotType})`);
     
     const specObjectToSave = ItemData || itemSpec || {}; 
     const itemSpecJson = JSON.stringify(specObjectToSave); 
 
-    let connection; // (3) 트랜잭션용 커넥션
+    let connection; 
     try {
         connection = await dbPool.getConnection();
-        await connection.beginTransaction(); // 트랜잭션 시작
+        await connection.beginTransaction(); 
 
         const [characters] = await connection.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]);
         if (characters.length === 0) {
@@ -950,44 +964,27 @@ if (itemIdNum >= 1 && itemIdNum <= 9) {
         }
         const seller_character_id = characters[0].character_id;
         
-        // (4) 인벤토리에서 해당 아이템 삭제 (hasItem=false 로직이 아님)
-        const deleteSql = `
-  DELETE FROM inventory 
-  WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ? AND item_id = ?
-`;
-const [deleteResult] = await connection.query(deleteSql, [
-  seller_character_id,
-  normalizedSlotType,
-  slotIndex,
-  ItemId
-]);
+        // 인벤토리에서 해당 아이템 삭제
+        const deleteSql = `DELETE FROM inventory WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ? AND item_id = ?`;
+        const [deleteResult] = await connection.query(deleteSql, [seller_character_id, normalizedSlotType, slotIndex, ItemId]);
 
-        // (5) 아이템이 실제로 삭제되었는지 확인
         if (deleteResult.affectedRows === 0) {
-            const [retry] = await connection.query(`
-           DELETE FROM inventory 
-           WHERE character_id = ? AND inventory_slot = ? AND item_id = ? 
-             AND (inventory_type = ? OR inventory_type IS NULL OR inventory_type = '')
-         `, [seller_character_id, slotIndex, ItemId, normalizedSlotType]);
-        if (retry.affectedRows === 0) {
             // "존재하지 않는 아이템" 로그의 원인
             console.warn(`[Market] ${userId}가 존재하지 않는 인벤토리 아이템 판매 시도 (Slot: ${slotType}/${slotIndex}, Item: ${ItemId})`);
             throw new Error('인벤토리에서 해당 아이템을 찾을 수 없습니다.');
-            }
         }
 
-        // (6) 마켓에 아이템 등록
+        // 마켓에 아이템 등록
         const addItemSql = 'INSERT INTO marketlistings (seller_character_id, item_id, quantity, price, item_spec, listed_at, expires_at) VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 DAY))';
         const [result] = await connection.query(addItemSql, [seller_character_id, ItemId, itemCount, price, itemSpecJson]); 
         
-        await connection.commit(); // (7) 모든 작업이 성공했으므로 커밋
+        await connection.commit(); 
 
-        // (8) 클라이언트가 판매 슬롯을 비울 수 있도록 성공 응답 전송
         res.status(200).json({ 
             success: true, 
             message: '아이템 등록 성공!', 
             marketId: result.insertId, 
-            ItemId: ItemId, // 클라이언트가 UI에서 아이템을 식별할 수 있도록 정보 전달
+            ItemId: ItemId, 
             slotType: slotType,
             slotIndex: slotIndex,
             ItemCount: parseInt(itemCount, 10), 
@@ -995,7 +992,7 @@ const [deleteResult] = await connection.query(deleteSql, [
         });
 
     } catch (err) {
-        if (connection) await connection.rollback(); // (9) 오류 발생 시 롤백
+        if (connection) await connection.rollback(); 
         console.error("거래소 등록 실패:", err);
         
         const clientMessage = (err.message === '인벤토리에서 해당 아이템을 찾을 수 없습니다.') 
@@ -1004,7 +1001,7 @@ const [deleteResult] = await connection.query(deleteSql, [
 
         res.status(500).json({ success: false, message: clientMessage });
     } finally {
-        if (connection) connection.release(); // (10) 커넥션 반환
+        if (connection) connection.release(); 
     }
 });
 // 아이템 구매
