@@ -799,23 +799,35 @@ if (typeof slotType === 'undefined' || typeof slotIndex === 'undefined') {
 
 // 🚨 [수정 1] 808라인부터 821라인까지를 이 코드로 덮어쓰세요
 // [새로운 수정] slotType이 아닌 itemId를 기준으로 타입을 강제합니다.
-const itemIdNum = parseInt(itemId, 10);
+// [최종 수정] slotType을 최우선으로 신뢰하되 ('Equipment', 'Quick'), 빈 값일 경우에만 itemId로 추측합니다.
 let normalizedSlotType;
+const clientSlotType = slotData.slotType; // 원본 slotType
+const itemIdNum = parseInt(itemId, 10);
 
-if (itemIdNum >= 1 && itemIdNum <= 9) {
-    normalizedSlotType = 'Consumption';
-} else if ((itemIdNum >= 101 && itemIdNum <= 110) || 
-           (itemIdNum >= 201 && itemIdNum <= 210) || 
-           (itemIdNum >= 301 && itemIdNum <= 310)) {
-    normalizedSlotType = 'Equipment';
-} else {
-    // ItemId로 알 수 없는 'Other' 아이템 등은 기존 로직을 fallback으로 사용
-    const typeMap = { 0: 'Equipment', 1: 'Consumption', 2: 'Other', 3: 'Profile', 4: 'Quick', 5: 'Equipment' };
-    let nSlotType = slotType;
-    if (typeof nSlotType === 'number' || /^[0-9]+$/.test(nSlotType)) {
-         normalizedSlotType = typeMap[nSlotType] ?? 'Other';
-    } else {
-         normalizedSlotType = nSlotType || 'Other';
+// 1. 클라이언트가 'Equipment' 또는 'Quick'이라고 명시적으로 보냈다면, 100% 신뢰합니다.
+if (clientSlotType === 'Equipment' || clientSlotType === 'Quick') {
+    normalizedSlotType = clientSlotType;
+} 
+// 2. 그 외의 경우 (숫자, "Consumption", "Other", "", NULL 등)
+else {
+    // 2a. ItemId를 기준으로 타입을 강제/추측합니다. (기존 로직)
+    if (itemIdNum >= 1 && itemIdNum <= 9) { // Potions etc.
+        normalizedSlotType = 'Consumption';
+    } else if ((itemIdNum >= 101 && itemIdNum <= 110) || // Weapons
+               (itemIdNum >= 201 && itemIdNum <= 210) || // Armor
+               (itemIdNum >= 301 && itemIdNum <= 310)) { // Helmets
+        normalizedSlotType = 'Equipment';
+    } 
+    // 2b. ItemId로도 모르겠으면, 클라이언트가 보낸 값을 (숫자->문자) 변환하여 사용합니다. (기존 Fallback)
+    else {
+        const typeMap = { 0: 'Equipment', 1: 'Consumption', 2: 'Other', 3: 'Profile', 4: 'Quick', 5: 'Equipment' };
+        let nSlotType = clientSlotType;
+        if (typeof nSlotType === 'number' || /^[0-9]+$/.test(nSlotType)) {
+             normalizedSlotType = typeMap[nSlotType] ?? 'Other';
+        } else {
+             // "Consumption", "Other" 등은 그대로 통과, 빈 문자열은 "Other"로
+             normalizedSlotType = nSlotType || 'Other';
+        }
     }
 }
 
