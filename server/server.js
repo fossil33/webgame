@@ -805,13 +805,14 @@ if (typeof slotType === 'undefined' || typeof slotIndex === 'undefined') {
 // 🔹 slotType이 숫자일 경우 문자열로 매핑 (서버 방어 코드)
 let normalizedSlotType = slotType;
 if (typeof normalizedSlotType === 'number' || /^[0-9]+$/.test(normalizedSlotType)) {
-  const typeMap = {
-    1: 'Consumption',
-    2: 'Equipment',
-    3: 'Profile',
-    4: 'Quick',
-    5: 'Equipment' // 실제 로그에서 5는 Equipment에 해당
-  };
+const typeMap = {
+  0: 'Equipment',   // 👈 추가: 클라이언트의 'Equipment' 탭 (index 0)
+  1: 'Consumption', // 유지: 클라이언트의 'Consumption' 탭 (index 1)
+  2: 'Other',       // 👈 수정: 클라이언트의 'Other' 탭 (index 2)
+  3: 'Profile',     // 유지: (사용 안 함)
+  4: 'Quick',       // 유지: (사용 안 함)
+  5: 'Equipment'    // 👈 유지: 클라이언트의 판매 버그(slotType: 5) 대응
+};
   normalizedSlotType = typeMap[normalizedSlotType] || 'Other';
 }
 
