@@ -992,18 +992,9 @@ if (remain > 0) {
     [seller_character_id, normalizedSlotType, slotIndex, ItemId]
   );
 }
-
-// 3) 거래소 등록 그대로 유지
-await connection.query(
-  `INSERT INTO marketlistings (seller_character_id, item_id, quantity, price, item_spec, listed_at, expires_at)
-   VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 DAY))`,
-  [seller_character_id, ItemId, sellQty, price, itemSpecJson]
-);
-
-
         // 마켓에 아이템 등록
         const addItemSql = 'INSERT INTO marketlistings (seller_character_id, item_id, quantity, price, item_spec, listed_at, expires_at) VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 DAY))';
-        const [result] = await connection.query(addItemSql, [seller_character_id, ItemId, itemCount, price, itemSpecJson]); 
+        const [result] = await connection.query(addItemSql, [seller_character_id, ItemId, sellQty, price, itemSpecJson]);
         
         await connection.commit(); 
 
@@ -1144,8 +1135,8 @@ app.post('/playerData/:userId', async (req, res) => {
     );
 
     // 최종 값: 들어온 값이 있으면 사용, 없으면 기존 DB 유지
-    const finalLevel = (typeof incoming.level === 'number') ? incoming.level : curChar?.level ?? 1;
-    const finalGold  = (typeof incoming.gold  === 'number') ? incoming.gold  : curChar?.gold  ?? 0;
+    const finalLevel = curChar?.level ?? 1;
+    const finalGold  = curChar?.gold  ?? 0;
 
     const finalPosX = incoming.position?.x ?? curChar?.position_x ?? -15.76;
     const finalPosY = incoming.position?.y ?? curChar?.position_y ?? 3.866;
@@ -1154,7 +1145,7 @@ app.post('/playerData/:userId', async (req, res) => {
 
     const finalHpCur = (typeof incoming.currentHp === 'number') ? incoming.currentHp : curStats?.currentHp ?? 100;
     const finalHpMax = (typeof incoming.maxHp    === 'number') ? incoming.maxHp    : curStats?.maxHp    ?? 100;
-    const finalExp   = (typeof incoming.exp      === 'number') ? incoming.exp      : curStats?.exp      ?? 0;
+    const finalExp   = curStats?.exp      ?? 0;
     const finalSpd   = (typeof incoming.speed    === 'number') ? incoming.speed    : curStats?.speed    ?? 3;
     const finalDef   = (typeof incoming.defense  === 'number') ? incoming.defense  : curStats?.defense  ?? 5;
     const finalDmg   = (typeof incoming.damage   === 'number') ? incoming.damage   : curStats?.damage   ?? 1;
