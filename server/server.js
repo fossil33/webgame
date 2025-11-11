@@ -911,42 +911,36 @@ app.post('/market/items', async (req, res) => {
         return res.status(400).json({ success: false, message: '판매 아이템의 원본 슬롯 정보(slotType, slotIndex)가 누락되었습니다.' });
     }
 
-    // [최종 수정 로직] slotType(숫자/문자)을 itemId보다 먼저 확인합니다.
-    let normalizedSlotType;
+// ✅ [수정] 판매 시에는 ItemId를 기준으로 타입을 강제합니다. (클라이언트 slotType 버그 대응)
+let normalizedSlotType;
+const itemIdNum = parseInt(ItemId, 10);
 
-    // ▼▼▼ /market API용 변수 설정 ▼▼▼
-    const clientSlotType = slotType; 
-    const itemIdNum = parseInt(ItemId, 10);
-    // ▲▲▲ ▲▲▲ ▲▲▲
-
+// 1. ItemId로 타입을 알 수 있는 경우 (최우선)
+if (itemIdNum >= 1 && itemIdNum <= 9) { // Potions
+    normalizedSlotType = 'Consumption';
+} else if ((itemIdNum >= 101 && itemIdNum <= 110) || // Weapons
+           (itemIdNum >= 201 && itemIdNum <= 210) || // Armor
+           (itemIdNum >= 301 && itemIdNum <= 310)) { // Helmets
+    normalizedSlotType = 'Equipment';
+} 
+// 2. ItemId로 알 수 없는 아이템('Other' 등)은 클라이언트가 보낸 값을 신뢰합니다.
+//    (기존 퀵슬롯/장비슬롯 유지를 위한 save 로직을 그대로 사용)
+else {
+    const clientSlotType = slotType; // 원본 slotType
     const typeMap = { 0: 'Equipment', 1: 'Consumption', 2: 'Other', 3: 'Profile', 4: 'Quick', 5: 'Equipment' };
 
-    // 1. Client가 'Equipment' 또는 'Quick' 문자를 보낸 경우 (최우선)
     if (clientSlotType === 'Equipment' || clientSlotType === 'Quick') {
         normalizedSlotType = clientSlotType;
     } 
-    // 2. Client가 숫자를 보낸 경우 (차선)
     else if (typeof clientSlotType === 'number' || /^[0-9]+$/.test(clientSlotType)) {
         normalizedSlotType = typeMap[clientSlotType] ?? 'Other';
     }
-    // 3. Client가 'Consumption', 'Other', '' 등을 보낸 경우 (itemId로 추측)
     else {
-        if (clientSlotType) {
-            normalizedSlotType = clientSlotType; // 'Consumption', 'Other' 등은 신뢰
-        } else {
-            // Client가 '' 또는 NULL을 보냈을 때만 itemId로 추측
-            if (itemIdNum >= 1 && itemIdNum <= 9) { // Potions
-                normalizedSlotType = 'Consumption';
-            } else if ((itemIdNum >= 101 && itemIdNum <= 110) || // Weapons
-                       (itemIdNum >= 201 && itemIdNum <= 210) || // Armor
-                       (itemIdNum >= 301 && itemIdNum <= 310)) { // Helmets
-                normalizedSlotType = 'Equipment';
-            } else {
-                normalizedSlotType = 'Other'; // 그 외
-            }
-        }
+        // 'Consumption', 'Other' 등이 문자열로 올 경우
+        normalizedSlotType = clientSlotType || 'Other';
     }
-    // --- 로직 수정 끝 ---
+}
+// --- 수정된 로직 끝 ---
 
     console.log(`[POST] ${userId} 판매 등록 요청 (Slot: ${slotType}/${slotIndex} -> ${normalizedSlotType})`);
     
