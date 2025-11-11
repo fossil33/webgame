@@ -720,6 +720,7 @@ app.delete('/api/posts/:id', async (req, res) => {
 });
 
 // 인벤토리 조회
+// 인벤토리 조회
 app.get('/playerData/inventory/:userId', async (req, res) => { 
     const { userId } = req.params;
     console.log(`[inventory Check] 1. userId: ${userId}`);
@@ -729,6 +730,7 @@ app.get('/playerData/inventory/:userId', async (req, res) => {
         const characterId = characters[0].character_id;
         console.log(`[inventory Check] 2. characterId: ${characterId}`);
 
+        // --- 여기부터 SQL 쿼리 수정 ---
         const invSql = `
           SELECT
             inv.inventory_slot AS slotIndex,
@@ -761,6 +763,7 @@ app.get('/playerData/inventory/:userId', async (req, res) => {
             AND inv.item_id != 0
           ORDER BY inv.inventory_type, inv.inventory_slot ASC
         `;
+        // --- 여기까지 SQL 쿼리 수정 ---
 
         const [results] = await dbPool.query(invSql, [characterId]); 
         console.log(`[inventory Check] 3. ${results.length} items found.`);
