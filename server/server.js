@@ -1062,11 +1062,14 @@ app.get('/market/buy', async (req, res) => {
         const sellerGold = goldResults.find(r => r.character_id === seller_character_id)?.gold;
         const remainingItemCount = quantity - purchaseCount;
 
-        res.json({ success: true, message: '아이템 구매 성공.', marketId: parseInt(marketId), ItemId: item_id, spec: JSON.parse(item_spec || '{}'), purchasedItemCount: purchaseCount, remainingItemCount: remainingItemCount, gold: buyerGold, sellerGold: sellerGold });
+res.json({ success: true, message: '아이템 구매 성공.', marketId: parseInt(marketId), ItemId: item_id, spec: JSON.parse(item_spec || '{}'), purchasedItemCount: purchaseCount, remainingItemCount: remainingItemCount, gold: buyerGold, sellerGold: sellerGold });
+
+    } catch (err) { // <--- 1. try 블록을 닫고 catch (err) 시작
+        // 2. 에러 처리 코드를 이 안으로 이동
         console.error('Market buy error:', err);
         res.status(err.message === '골드 부족' || err.message === '아이템 개수 부족' || err.message === '판매 물품 없음' || err.message === '구매자 캐릭터 없음' ? 400 : 500)
            .json({ success: false, message: err.message || '구매 처리 실패' });
-    } finally {
+    } finally { // <--- 3. finally 블록은 그대로 둡니다.
         if (connection) connection.release();
     }
 });
