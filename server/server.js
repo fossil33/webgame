@@ -872,10 +872,8 @@ app.get('/market/items/:userId', async (req, res) => {
 app.post('/market/items', async (req, res) => {
     console.log("판매 요청 데이터:", req.body);
     
-    // (1) 클라이언트에서 판매 아이템의 원본 슬롯 정보를 받아야 합니다.
     const { userId, ItemId, ItemData, itemSpec, itemCount, price, slotType, slotIndex } = req.body;
     
-    // (2) 필수 값(원본 슬롯 정보) 검증
     if (typeof slotType === 'undefined' || typeof slotIndex === 'undefined') {
         console.error('Market POST error: slotType 또는 slotIndex가 없습니다.', req.body);
         return res.status(400).json({ success: false, message: '판매 아이템의 원본 슬롯 정보(slotType, slotIndex)가 누락되었습니다.' });
@@ -886,10 +884,10 @@ app.post('/market/items', async (req, res) => {
     const specObjectToSave = ItemData || itemSpec || {}; 
     const itemSpecJson = JSON.stringify(specObjectToSave); 
 
-    let connection; // (3) 트랜잭션용 커넥션
+    let connection; 
     try {
         connection = await dbPool.getConnection();
-        await connection.beginTransaction(); // 트랜잭션 시작
+        await connection.beginTransaction(); 
 
         const [characters] = await connection.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]);
         if (characters.length === 0) {
@@ -897,31 +895,45 @@ app.post('/market/items', async (req, res) => {
         }
         const seller_character_id = characters[0].character_id;
         
-        // (4) 인벤토리에서 해당 아이템 삭제 (hasItem=false 로직이 아님)
-        const deleteSql = `DELETE FROM inventory WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ?`;
-        
-        // [수정됨] 파라미터에서 ItemId를 제거합니다.
-        const [deleteResult] = await connection.query(deleteSql, [seller_character_id, slotType, slotIndex]);
+        // (4) 인벤토리에서 해당 아이템 삭제 (1차 시도: 정확한 타입)
+        const deleteSql_Strict = `DELETE FROM inventory WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ?`;
+        let [deleteResult] = await connection.query(deleteSql_Strict, [seller_character_id, slotType, slotIndex]);
 
-        // (5) 아이템이 실제로 삭제되었는지 확인
+        // (5) [수정됨] 1차 삭제 실패 시, NULL/빈 타입으로 2차 시도
+        if (deleteResult.affectedRows === 0) {
+            console.warn(`[Market] Strict delete failed for ${userId} (Slot: ${slotType}/${slotIndex}). Retrying with lenient type check (NULL/empty).`);
+            
+            // 2차 시도: slotIndex는 일치하지만 type이 NULL이거나 빈 경우
+            const deleteSql_Leniency = `DELETE FROM inventory WHERE character_id = ? AND inventory_slot = ? AND (inventory_type IS NULL OR inventory_type = '')`;
+            
+            // [참고] 2차 시도에서는 item_id도 함께 검사하여 더 안전하게 삭제할 수도 있습니다.
+            // const deleteSql_Leniency_Safer = `DELETE FROM inventory WHERE character_id = ? AND inventory_slot = ? AND item_id = ? AND (inventory_type IS NULL OR inventory_type = '')`;
+            // [deleteResult] = await connection.query(deleteSql_Leniency_Safer, [seller_character_id, slotIndex, ItemId]);
+            
+            // 현재 로직(PK 기준)을 따르기 위해 2차 시도도 type만 완화합니다.
+            [deleteResult] = await connection.query(deleteSql_Leniency, [seller_character_id, slotIndex]);
+        }
+
+
+        // (6) [수정됨] 1, 2차 모두 실패했는지 최종 확인
         if (deleteResult.affectedRows === 0) {
             // "존재하지 않는 아이템" 로그의 원인
             console.warn(`[Market] ${userId}가 존재하지 않는 인벤토리 아이템 판매 시도 (Slot: ${slotType}/${slotIndex}, Item: ${ItemId})`);
             throw new Error('인벤토리에서 해당 아이템을 찾을 수 없습니다.');
         }
 
-        // (6) 마켓에 아이템 등록
+        // (7) 마켓에 아이템 등록
         const addItemSql = 'INSERT INTO marketlistings (seller_character_id, item_id, quantity, price, item_spec, listed_at, expires_at) VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 DAY))';
         const [result] = await connection.query(addItemSql, [seller_character_id, ItemId, itemCount, price, itemSpecJson]); 
         
-        await connection.commit(); // (7) 모든 작업이 성공했으므로 커밋
+        await connection.commit(); // (8) 모든 작업이 성공했으므로 커밋
 
-        // (8) 클라이언트가 판매 슬롯을 비울 수 있도록 성공 응답 전송
+        // (9) 클라이언트가 판매 슬롯을 비울 수 있도록 성공 응답 전송
         res.status(200).json({ 
             success: true, 
             message: '아이템 등록 성공!', 
             marketId: result.insertId, 
-            ItemId: ItemId, // 클라이언트가 UI에서 아이템을 식별할 수 있도록 정보 전달
+            ItemId: ItemId, 
             slotType: slotType,
             slotIndex: slotIndex,
             ItemCount: parseInt(itemCount, 10), 
@@ -929,7 +941,7 @@ app.post('/market/items', async (req, res) => {
         });
 
     } catch (err) {
-        if (connection) await connection.rollback(); // (9) 오류 발생 시 롤백
+        if (connection) await connection.rollback(); // (10) 오류 발생 시 롤백
         console.error("거래소 등록 실패:", err);
         
         const clientMessage = (err.message === '인벤토리에서 해당 아이템을 찾을 수 없습니다.') 
@@ -938,9 +950,10 @@ app.post('/market/items', async (req, res) => {
 
         res.status(500).json({ success: false, message: clientMessage });
     } finally {
-        if (connection) connection.release(); // (10) 커넥션 반환
+        if (connection) connection.release(); // (11) 커넥션 반환
     }
 });
+
 // 아이템 구매
 app.get('/market/buy', async (req, res) => {
     const { userId, marketId, count } = req.query;
