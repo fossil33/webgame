@@ -901,48 +901,36 @@ app.get('/market/items/:userId', async (req, res) => {
 });
 
 // 아이템 판매 등록
+// ✅ [수정] 아이템 판매 등록 (스택 버그 해결)
 app.post('/market/items', async (req, res) => {
     console.log("판매 요청 데이터:", req.body);
     
     const { userId, ItemId, ItemData, itemSpec, itemCount, price, slotType, slotIndex } = req.body;
-    
+    const sellCount = parseInt(itemCount, 10); // [BUG FIX] 판매할 수량
+
     if (typeof slotType === 'undefined' || typeof slotIndex === 'undefined') {
         console.error('Market POST error: slotType 또는 slotIndex가 없습니다.', req.body);
         return res.status(400).json({ success: false, message: '판매 아이템의 원본 슬롯 정보(slotType, slotIndex)가 누락되었습니다.' });
     }
-
-// ✅ [수정] 판매 시에는 ItemId를 기준으로 타입을 강제합니다. (클라이언트 slotType 버그 대응)
-let normalizedSlotType;
-const itemIdNum = parseInt(ItemId, 10);
-
-// 1. ItemId로 타입을 알 수 있는 경우 (최우선)
-if (itemIdNum >= 1 && itemIdNum <= 9) { // Potions
-    normalizedSlotType = 'Consumption';
-} else if ((itemIdNum >= 101 && itemIdNum <= 110) || // Weapons
-           (itemIdNum >= 201 && itemIdNum <= 210) || // Armor
-           (itemIdNum >= 301 && itemIdNum <= 310)) { // Helmets
-    normalizedSlotType = 'Equipment';
-} 
-// 2. ItemId로 알 수 없는 아이템('Other' 등)은 클라이언트가 보낸 값을 신뢰합니다.
-//    (기존 퀵슬롯/장비슬롯 유지를 위한 save 로직을 그대로 사용)
-else {
-    const clientSlotType = slotType; // 원본 slotType
-    const typeMap = { 0: 'Equipment', 1: 'Consumption', 2: 'Other', 3: 'Profile', 4: 'Quick', 5: 'Equipment' };
-
-    if (clientSlotType === 'Equipment' || clientSlotType === 'Quick') {
-        normalizedSlotType = clientSlotType;
-    } 
-    else if (typeof clientSlotType === 'number' || /^[0-9]+$/.test(clientSlotType)) {
-        normalizedSlotType = typeMap[clientSlotType] ?? 'Other';
+    if (!sellCount || sellCount <= 0) { // [BUG FIX] 0개 판매 방지
+        return res.status(400).json({ success: false, message: '판매 수량은 1 이상이어야 합니다.' });
     }
+
+    // --- 기존 normalizedSlotType 로직 (이건 정상이므로 유지) ---
+    let normalizedSlotType;
+    const itemIdNum = parseInt(ItemId, 10);
+    if (itemIdNum >= 1 && itemIdNum <= 9) { normalizedSlotType = 'Consumption'; }
+    else if ((itemIdNum >= 101 && itemIdNum <= 110) || (itemIdNum >= 201 && itemIdNum <= 210) || (itemIdNum >= 301 && itemIdNum <= 310)) { normalizedSlotType = 'Equipment'; }
     else {
-        // 'Consumption', 'Other' 등이 문자열로 올 경우
-        normalizedSlotType = clientSlotType || 'Other';
+        const clientSlotType = slotType;
+        const typeMap = { 0: 'Equipment', 1: 'Consumption', 2: 'Other', 3: 'Profile', 4: 'Quick', 5: 'Equipment' };
+        if (clientSlotType === 'Equipment' || clientSlotType === 'Quick') { normalizedSlotType = clientSlotType; }
+        else if (typeof clientSlotType === 'number' || /^[0-9]+$/.test(clientSlotType)) { normalizedSlotType = typeMap[clientSlotType] ?? 'Other'; }
+        else { normalizedSlotType = clientSlotType || 'Other'; }
     }
-}
-// --- 수정된 로직 끝 ---
+    // --- 로직 유지 끝 ---
 
-    console.log(`[POST] ${userId} 판매 등록 요청 (Slot: ${slotType}/${slotIndex} -> ${normalizedSlotType})`);
+    console.log(`[POST] ${userId} 판매 등록 요청 (Slot: ${slotType}/${slotIndex} -> ${normalizedSlotType}, Qty: ${sellCount})`);
     
     const specObjectToSave = ItemData || itemSpec || {}; 
     const itemSpecJson = JSON.stringify(specObjectToSave); 
@@ -953,24 +941,37 @@ else {
         await connection.beginTransaction(); 
 
         const [characters] = await connection.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]);
-        if (characters.length === 0) {
-            throw new Error('캐릭터를 찾을 수 없습니다.');
-        }
+        if (characters.length === 0) throw new Error('캐릭터를 찾을 수 없습니다.');
         const seller_character_id = characters[0].character_id;
         
-        // 인벤토리에서 해당 아이템 삭제
-        const deleteSql = `DELETE FROM inventory WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ? AND item_id = ?`;
-        const [deleteResult] = await connection.query(deleteSql, [seller_character_id, normalizedSlotType, slotIndex, ItemId]);
+        // [BUG FIX] 인벤토리에서 아이템 수량 확인 및 차감/삭제
+        const selectSql = `SELECT quantity FROM inventory WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ? AND item_id = ? FOR UPDATE`;
+        const [invItems] = await connection.query(selectSql, [seller_character_id, normalizedSlotType, slotIndex, ItemId]);
 
-        if (deleteResult.affectedRows === 0) {
-            // "존재하지 않는 아이템" 로그의 원인
+        if (invItems.length === 0) {
             console.warn(`[Market] ${userId}가 존재하지 않는 인벤토리 아이템 판매 시도 (Slot: ${slotType}/${slotIndex}, Item: ${ItemId})`);
             throw new Error('인벤토리에서 해당 아이템을 찾을 수 없습니다.');
         }
 
-        // 마켓에 아이템 등록
+        const currentQuantity = invItems[0].quantity;
+        if (currentQuantity < sellCount) {
+            throw new Error('보유한 아이템 수량이 부족합니다.');
+        }
+
+        if (currentQuantity > sellCount) {
+            // 수량 차감
+            const updateSql = `UPDATE inventory SET quantity = quantity - ? WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ? AND item_id = ?`;
+            await connection.query(updateSql, [sellCount, seller_character_id, normalizedSlotType, slotIndex, ItemId]);
+        } else {
+            // (currentQuantity === sellCount) -> 아이템 삭제
+            const deleteSql = `DELETE FROM inventory WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ? AND item_id = ?`;
+            await connection.query(deleteSql, [seller_character_id, normalizedSlotType, slotIndex, ItemId]);
+        }
+        // [BUG FIX 끝]
+
+        // 마켓에 아이템 등록 (판매 수량(sellCount)만큼만 등록)
         const addItemSql = 'INSERT INTO marketlistings (seller_character_id, item_id, quantity, price, item_spec, listed_at, expires_at) VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 DAY))';
-        const [result] = await connection.query(addItemSql, [seller_character_id, ItemId, itemCount, price, itemSpecJson]); 
+        const [result] = await connection.query(addItemSql, [seller_character_id, ItemId, sellCount, price, itemSpecJson]); 
         
         await connection.commit(); 
 
@@ -981,7 +982,7 @@ else {
             ItemId: ItemId, 
             slotType: slotType,
             slotIndex: slotIndex,
-            ItemCount: parseInt(itemCount, 10), 
+            ItemCount: sellCount, // 판매 등록된 수량
             price: parseInt(price, 10) 
         });
 
@@ -989,11 +990,13 @@ else {
         if (connection) await connection.rollback(); 
         console.error("거래소 등록 실패:", err);
         
-        const clientMessage = (err.message === '인벤토리에서 해당 아이템을 찾을 수 없습니다.') 
-            ? '존재하지 않는 아이템' 
+        const clientMessage = (err.message === '인벤토리에서 해당 아이템을 찾을 수 없습니다.' || err.message === '보유한 아이템 수량이 부족합니다.')
+            ? err.message
             : '거래소 등록 실패';
 
-        res.status(500).json({ success: false, message: clientMessage });
+        // 400 Bad Request 또는 500 Internal Server Error
+        const statusCode = (err.message === '보유한 아이템 수량이 부족합니다.') ? 400 : 500;
+        res.status(statusCode).json({ success: false, message: clientMessage });
     } finally {
         if (connection) connection.release(); 
     }
@@ -1080,23 +1083,57 @@ app.get('/playerData/:userId', async (req, res) => {
 });
 
 // 플레이어 데이터 저장
+// ✅ [수정] 플레이어 데이터 저장 (골드 0 버그 해결)
 app.post('/playerData/:userId', async (req, res) => { 
     const { userId } = req.params;
     const playerData = req.body || {};
     console.log(`[POST /playerData] User ${userId} sent data:\n`, JSON.stringify(playerData, null, 2));
-    const defaultData = { level: 1, gold: 0, position: { x: -15.76, y: 3.866, z: 49.78 }, rotation: { x: 0, y: 0, z: 0 }, currentHp: 100, maxHp: 100, exp: 0, speed: 3, defense: 5, damage: 1 };
-    const finalPlayerData = { ...defaultData, ...playerData };
+
+    // [BUG FIX] defaultData를 사용하지 않고, 받은 값만 동적으로 업데이트
+    
     let connection;
     try {
         connection = await dbPool.getConnection();
         await connection.beginTransaction();
+
         const [characters] = await connection.query(`SELECT character_id FROM characters WHERE user_id = ?`, [userId]);
         if (characters.length === 0) throw new Error('캐릭터 없음');
         const characterId = characters[0].character_id;
-        const updateCharacterSql = `UPDATE characters SET level = ?, gold = ?, position_x = ?, position_y = ?, position_z = ?, rotation_y = ? WHERE character_id = ?`;
-        await connection.query(updateCharacterSql, [finalPlayerData.level, finalPlayerData.gold, finalPlayerData.position.x, finalPlayerData.position.y, finalPlayerData.position.z, finalPlayerData.rotation.y, characterId]);
-        const updateStatsSql = `UPDATE characterstats SET currentHp = ?, maxHp = ?, experience = ?, speed = ?, defense = ?, damage = ? WHERE character_id = ?`;
-        await connection.query(updateStatsSql, [finalPlayerData.currentHp, finalPlayerData.maxHp, finalPlayerData.exp, finalPlayerData.speed, finalPlayerData.defense, finalPlayerData.damage, characterId]);
+
+        // --- 'characters' 테이블 동적 업데이트 ---
+        const charUpdates = [];
+        const charParams = [];
+        if (playerData.level !== undefined) { charUpdates.push('level = ?'); charParams.push(playerData.level); }
+        if (playerData.gold !== undefined) { charUpdates.push('gold = ?'); charParams.push(playerData.gold); }
+        if (playerData.position) {
+            if (playerData.position.x !== undefined) { charUpdates.push('position_x = ?'); charParams.push(playerData.position.x); }
+            if (playerData.position.y !== undefined) { charUpdates.push('position_y = ?'); charParams.push(playerData.position.y); }
+            if (playerData.position.z !== undefined) { charUpdates.push('position_z = ?'); charParams.push(playerData.position.z); }
+        }
+        if (playerData.rotation && playerData.rotation.y !== undefined) { charUpdates.push('rotation_y = ?'); charParams.push(playerData.rotation.y); }
+
+        if (charUpdates.length > 0) {
+            charParams.push(characterId);
+            const updateCharacterSql = `UPDATE characters SET ${charUpdates.join(', ')} WHERE character_id = ?`;
+            await connection.query(updateCharacterSql, charParams);
+        }
+
+        // --- 'characterstats' 테이블 동적 업데이트 ---
+        const statsUpdates = [];
+        const statsParams = [];
+        if (playerData.currentHp !== undefined) { statsUpdates.push('currentHp = ?'); statsParams.push(playerData.currentHp); }
+        if (playerData.maxHp !== undefined) { statsUpdates.push('maxHp = ?'); statsParams.push(playerData.maxHp); }
+        if (playerData.exp !== undefined) { statsUpdates.push('experience = ?'); statsParams.push(playerData.exp); }
+        if (playerData.speed !== undefined) { statsUpdates.push('speed = ?'); statsParams.push(playerData.speed); }
+        if (playerData.defense !== undefined) { statsUpdates.push('defense = ?'); statsParams.push(playerData.defense); }
+        if (playerData.damage !== undefined) { statsUpdates.push('damage = ?'); statsParams.push(playerData.damage); }
+
+        if (statsUpdates.length > 0) {
+            statsParams.push(characterId);
+            const updateStatsSql = `UPDATE characterstats SET ${statsUpdates.join(', ')} WHERE character_id = ?`;
+            await connection.query(updateStatsSql, statsParams);
+        }
+        
         await connection.commit();
         console.log(`[POST] ${userId} 데이터 저장 완료`);
         res.status(200).json({ success: true, message: 'Player data saved successfully.' });
