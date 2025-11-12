@@ -314,6 +314,8 @@ z-index: 5;
         const kakaoNickname = localStorage.getItem('kakaoNickname');
         const myNickname = localStorage.getItem('myNickname') || kakaoNickname;
 
+        const isGuest = localStorage.getItem('isGuest') === 'true';
+
         const loginMenu = document.getElementById('login-menu');
         const userNameMenuContainer = document.getElementById('user-name-menu-container');
         const userNameElement = document.getElementById('user-name');
@@ -322,33 +324,60 @@ z-index: 5;
         const nicknameEditBox = document.getElementById('nicknameEditBox');
         const nicknameInput = document.getElementById('nicknameInput');
 
-        if (kakaoNickname) {
+if (kakaoNickname) {
             if (loginMenu) loginMenu.style.display = 'none';
             if (userNameMenuContainer) userNameMenuContainer.style.display = 'list-item';
             if (userNameElement) userNameElement.textContent = myNickname || kakaoNickname;
 
-            if (userInfoButton) {
-                userInfoButton.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    if (nicknameEditBox) nicknameEditBox.style.display = 'block';
-                    if (nicknameInput) nicknameInput.value = myNickname || '';
-                });
-            }
+            // ▼▼▼ [수정] 게스트/일반 유저 분기 처리 ▼▼▼
+            if (isGuest) {
+                // 게스트일 경우: '내 정보' 버튼 숨기기
+                if (userInfoButton) {
+                    userInfoButton.style.display = 'none'; 
+                }
 
-            if (logoutButton) {
-                logoutButton.addEventListener('click', function () {
-                    localStorage.removeItem('kakaoNickname');
-                    localStorage.removeItem('myNickname');
-                    if (typeof Kakao !== 'undefined' && Kakao.Auth && Kakao.Auth.logout) {
-                        Kakao.Auth.logout(function () {
-                            location.reload();
-                        });
-                    } else {
-                        console.warn('Kakao SDK not fully loaded or logout function unavailable. Reloading page.');
+                // 게스트일 경우: 로그아웃 로직 변경
+                if (logoutButton) {
+                    logoutButton.addEventListener('click', function () {
+                        // 게스트는 localStorage만 비우고 새로고침
+                        localStorage.removeItem('kakaoNickname');
+                        localStorage.removeItem('myNickname');
+                        localStorage.removeItem('userId');
+                        localStorage.removeItem('isGuest');
                         location.reload();
-                    }
-                });
+                    });
+                }
+            } else {
+                // (기존 로직) 실제 카카오 유저일 경우
+                if (userInfoButton) {
+                    userInfoButton.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        if (nicknameEditBox) nicknameEditBox.style.display = 'block';
+                        if (nicknameInput) nicknameInput.value = myNickname || '';
+                    });
+                }
+
+                if (logoutButton) {
+                    logoutButton.addEventListener('click', function () {
+                        localStorage.removeItem('kakaoNickname');
+                        localStorage.removeItem('myNickname');
+                        localStorage.removeItem('userId'); // userId도 삭제
+                        localStorage.removeItem('isGuest'); // isGuest도 삭제
+                        
+                        // (기존) 카카오 로그아웃
+                        if (typeof Kakao !== 'undefined' && Kakao.Auth && Kakao.Auth.logout) {
+                            Kakao.Auth.logout(function () {
+                                location.reload();
+                            });
+                        } else {
+                            console.warn('Kakao SDK not fully loaded or logout function unavailable. Reloading page.');
+                            location.reload();
+                        }
+                    });
+                }
             }
+            // ▲▲▲ [수정] 게스트/일반 유저 분기 처리 ▲▲▲
+
         } else {
             if (loginMenu) loginMenu.style.display = 'list-item';
             if (userNameMenuContainer) userNameMenuContainer.style.display = 'none';
@@ -575,53 +604,6 @@ z-index: 5;
     <script src="https://developers.kakao.com/sdk/js/kakao.min.js"></script>
     <script src="#script.js"></script>
 
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const kakaoNickname = localStorage.getItem('kakaoNickname');
-        const myNickname = localStorage.getItem('myNickname') || kakaoNickname;
-
-        if (kakaoNickname) {
-            document.getElementById('login-menu').style.display = 'none';
-            const userNameMenu = document.getElementById('user-name-menu-container'); // 올바른 ID 사용
-            userNameMenu.style.display = 'list-item'; // li 요소에 맞는 display 값
-            const userNameElement = document.getElementById('user-name');
-            userNameElement.textContent = myNickname || kakaoNickname;
-
-            // "내 정보" 클릭 시 닉네임 수정 UI 표시
-            document.getElementById('user-info').addEventListener('click', function (e) {
-                e.preventDefault();
-                document.getElementById('nicknameEditBox').style.display = 'block';
-                document.getElementById('nicknameInput').value = myNickname || '';
-            });
-
-            // 로그아웃 시 닉네임 정보도 삭제
-            document.getElementById('logout').addEventListener('click', function () {
-                localStorage.removeItem('kakaoNickname');
-                localStorage.removeItem('myNickname');
-                Kakao.Auth.logout(function () {
-                    location.reload();
-                });
-            });
-        }
-    });
-
-    function saveNewNickname() {
-        const newNickname = document.getElementById('nicknameInput').value.trim();
-        if (newNickname.length < 2) {
-            alert('닉네임은 2자 이상 입력해야 합니다.');
-            return;
-        }
-        localStorage.setItem('myNickname', newNickname);
-
-        const userNameElement = document.getElementById('user-name');
-        if (userNameElement) {
-            userNameElement.textContent = newNickname;
-        }
-
-        document.getElementById('nicknameEditBox').style.display = 'none';
-        alert('닉네임이 변경되었습니다!');
-    }
-</script>
 <script>
 /* 메인 히어로 이벤트 슬라이더 (챗봇과 동일 로직) */
 document.addEventListener('DOMContentLoaded', initHeroEventSlider);

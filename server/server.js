@@ -9,7 +9,7 @@ const fs = require('fs');
 const app = express();
 const server = http.createServer(app);
 
-const PORT = 8080;
+const PORT = 3000;
 
 require('dotenv').config();
 
@@ -122,10 +122,80 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('initialize', async (userId) => { 
-        console.log(`[Game] Initializing player: ${userId} for socket ${socket.id}`);
-        socketIdToUserId.set(socket.id, userId);
+    // ▼▼▼ [수정] 게스트 처리를 위해 (data) 객체로 받음 ▼▼▼
+socket.on('initialize', async (data) => { 
+    
+    let userId;
+    let nickname = 'Guest';
+    let isGuest = false;
 
+    if (typeof data === 'string') {
+        userId = data;
+    } else if (data && data.userId) {
+        userId = data.userId;
+        nickname = data.nickname || 'Guest';
+        isGuest = data.isGuest === true;
+    } else {
+        console.error(`[Game] Invalid initialize data from socket ${socket.id}:`, data);
+        return; 
+    }
+    
+    isGuest = isGuest || String(userId).startsWith('guest_');
+
+    console.log(`[Game] Initializing player: ${userId} (Guest: ${isGuest}) for socket ${socket.id}`);
+    socketIdToUserId.set(socket.id, userId); 
+
+    // ▼▼▼ [수정] 게스트 분기 처리 ▼▼▼
+    if (isGuest) {
+        // [게스트 로직]
+        // (1) 씬 이동 후 재초기화(respawn)인지, (2) 최초 접속인지 확인
+        const existingPlayer = gamePlayers[userId];
+
+        if (existingPlayer) {
+            // (1) 씬 이동 후 재초기화인 경우
+            // 이미 requestSceneChange에서 sceneName이 "Combat"으로 변경됨.
+            console.log(`[Game] GUEST ${nickname} (${userId}) 재초기화. (씬: ${existingPlayer.currentSceneName})`);
+            
+            // 기존 데이터를 그대로 사용 (특히 sceneName)
+            socket.emit('initializeComplete', existingPlayer);
+        } else {
+            // (2) 최초 접속인 경우
+            console.log(`[Game] GUEST ${nickname} (${userId}) 최초 초기화.`);
+            
+            // ▼▼▼ [추가] 기본 인벤토리 데이터를 여기에 생성합니다. ▼▼▼
+            const defaultInventory = [
+                {
+                    slotIndex: 1,
+                    slotType: 'Equipment',
+                    itemId: 101,
+                    itemCount: 1,
+                    itemSpec: { "damage": 5, "defense": 10, "hp": 10 }
+                },
+                {
+                    slotIndex: 0,
+                    slotType: 'Consumption',
+                    itemId: 1,
+                    itemCount: 10,
+                    itemSpec: { "hp": 10 }
+                }
+            ];
+            // ▲▲▲ [추가] ▲▲▲
+
+            const playerData = { 
+                id: userId, 
+                nickname: nickname,
+                position: { x: -15.76, y: 3.866, z: 49.78 }, 
+                rotation: { x: 0, y: 0, z: 0 },
+                currentSceneName: 'Main', // 최초 접속은 'Main'
+                inventory: defaultInventory // <-- 생성된 인벤토리를 메모리에 추가
+            };
+            gamePlayers[userId] = playerData; 
+            socket.emit('initializeComplete', playerData); 
+        }
+    // ▲▲▲ [수정] 게스트 분기 처리 ▲▲▲
+
+    } else {
+        // [기존 로직] DB에서 실제 유저 정보 조회
         const sql = `SELECT c.character_id, c.character_name, c.position_x, c.position_y, c.position_z, c.rotation_y, c.current_scene_name, u.nickname 
                      FROM characters c 
                      LEFT JOIN users u ON c.user_id = u.user_id 
@@ -137,10 +207,10 @@ io.on('connection', (socket) => {
                 console.log(`[Game] DB에서 ${userId}의 위치 정보를 찾지 못해 기본값으로 설정합니다.`);
                 playerData = { 
                     id: userId, 
-                    nickname: 'NewPlayer', // 닉네임 정보가 없을 시 기본값
+                    nickname: nickname, 
                     position: { x: -15.76, y: 3.866, z: 49.78 }, 
                     rotation: { x: 0, y: 0, z: 0 },
-                    currentSceneName: 'Main' // 기본 씬
+                    currentSceneName: 'Main' 
                 };
             } else {
                 const dbData = results[0];
@@ -153,14 +223,13 @@ io.on('connection', (socket) => {
                         z: dbData.position_z || 49.78 
                     }, 
                     rotation: { x: 0, y: dbData.rotation_y || 0, z: 0 },
-                    currentSceneName: dbData.current_scene_name || 'Main' // DB 씬
+                    currentSceneName: dbData.current_scene_name || 'Main' 
                 };
             }
             gamePlayers[userId] = playerData; 
-            socket.emit('initializeComplete', playerData); // 클라이언트에 초기 데이터 전송
+            socket.emit('initializeComplete', playerData); 
         } catch (err) {
             console.error('[Game] Initialize DB error:', err);
-             // DB 오류 시 기본값으로라도 초기화 시도
             const playerData = { 
                 id: userId, 
                 nickname: 'ErrorPlayer',
@@ -171,10 +240,15 @@ io.on('connection', (socket) => {
             gamePlayers[userId] = playerData;
             socket.emit('initializeComplete', playerData);
         }
-    });
+    }
+});
 
     socket.on('requestSceneChange', async (data) => {
         const userId = socketIdToUserId.get(socket.id);
+        // ▼▼▼ [수정] 게스트 확인 ▼▼▼
+        const isGuest = String(userId).startsWith('guest_');
+        // ▲▲▲ [수정] 게스트 확인 ▲▲▲
+
         if (!userId || !gamePlayers[userId]) {
             console.error(`[SceneChange] User not found for socket ${socket.id}. Sending respawn to unfreeze.`);
             socket.emit('respawn');
@@ -192,13 +266,20 @@ io.on('connection', (socket) => {
             const newPos = data.pos;
             const oldScene = gamePlayers[userId].currentSceneName;
 
-            // DB 갱신
-            await dbPool.query(
-                `UPDATE characters SET current_scene_name = ?, position_x = ?, position_y = ?, position_z = ? WHERE user_id = ?`,
-                [newScene, newPos.x, newPos.y, newPos.z, userId]
-            );
+            // ▼▼▼ [수정] 게스트는 DB 저장 건너뛰기 ▼▼▼
+            if (!isGuest) {
+                // [기존 로직] DB 갱신
+                await dbPool.query(
+                    `UPDATE characters SET current_scene_name = ?, position_x = ?, position_y = ?, position_z = ? WHERE user_id = ?`,
+                    [newScene, newPos.x, newPos.y, newPos.z, userId]
+                );
+                console.log(`[SceneChange] User ${userId} moving from ${oldScene} to ${newScene} (DB Update Complete)`);
+            } else {
+                console.log(`[SceneChange] GUEST ${userId} moving from ${oldScene} to ${newScene} (No DB Save)`);
+            }
+            // ▲▲▲ [수정] 게스트는 DB 저장 건너뛰기 ▲▲▲
 
-            // 서버 메모리 갱신
+            // 서버 메모리 갱신 (게스트/유저 공통)
             gamePlayers[userId].currentSceneName = newScene;
             gamePlayers[userId].position = newPos;
 
@@ -208,10 +289,8 @@ io.on('connection', (socket) => {
                 socket.to(oldScene).emit('playerDisconnected', userId);
             }
             
-            console.log(`[SceneChange] User ${userId} moving from ${oldScene} to ${newScene} (DB Update Complete)`);
-
             socket.emit('respawn'); 
-            // 클라이언트는 이 신호를 받고 'initialize'부터 다시 시작하며, DB에서 변경된 씬 이름을 읽어갑니다.
+            // 클라이언트는 이 신호를 받고 'initialize'부터 다시 시작하며, 변경된 씬 이름을 읽어갑니다.
 
         } catch (e) {
             console.error("[SceneChange] Failed to parse request (Critical Error):", e);
@@ -301,30 +380,39 @@ io.on('connection', (socket) => {
 
     socket.on('playerDied', async () => {
         const userId = socketIdToUserId.get(socket.id); 
+        // ▼▼▼ [수정] 게스트 확인 ▼▼▼
+        const isGuest = String(userId).startsWith('guest_');
+        // ▲▲▲ [수정] 게스트 확인 ▲▲▲
+
         if (!userId || !gamePlayers[userId]) {
              console.error(`Player data for userId (from socket ${socket.id}) not found on death.`);
              return;
         }
         
-        console.log(`[Game] Player ${userId} died. Resetting data...`);
+        console.log(`[Game] Player ${userId} (Guest: ${isGuest}) died. Resetting data...`);
 
         // 부활 위치 및 씬 설정
         const respawnPosition = { x: -15.76, y: 3.866, z: 49.78 }; 
         const respawnScene = 'Main';
 
-        try {
-            await dbPool.query(
-                `UPDATE characters SET current_scene_name = ?, position_x = ?, position_y = ?, position_z = ?, level = 1, gold = 0 WHERE user_id = ?`,
-                [respawnScene, respawnPosition.x, respawnPosition.y, respawnPosition.z, userId]
-            );
-            await dbPool.query(
-                `UPDATE characterstats SET currentHp = maxHp, experience = 0 WHERE character_id = (SELECT character_id FROM characters WHERE user_id = ? LIMIT 1)`,
-                [userId]
-            );
-        } catch (err) {
-            console.error(`[Game] DB Error on playerDied for ${userId}:`, err);
+        // ▼▼▼ [수정] 게스트는 DB 저장 건너뛰기 ▼▼▼
+        if (!isGuest) {
+            try {
+                // [기존 로직]
+                await dbPool.query(
+                    `UPDATE characters SET current_scene_name = ?, position_x = ?, position_y = ?, position_z = ?, level = 1, gold = 0 WHERE user_id = ?`,
+                    [respawnScene, respawnPosition.x, respawnPosition.y, respawnPosition.z, userId]
+                );
+                await dbPool.query(
+                    `UPDATE characterstats SET currentHp = maxHp, experience = 0 WHERE character_id = (SELECT character_id FROM characters WHERE user_id = ? LIMIT 1)`,
+                    [userId]
+                );
+            } catch (err) {
+                console.error(`[Game] DB Error on playerDied for ${userId}:`, err);
+            }
         }
-
+        // ▲▲▲ [수정] 게스트는 DB 저장 건너뛰기 ▲▲▲
+ 
         gamePlayers[userId].position = respawnPosition;
         gamePlayers[userId].currentSceneName = respawnScene;
         // (HP, Exp 등은 어차피 'initialize'할 때 DB에서 다시 읽어옴)
@@ -342,7 +430,7 @@ io.on('connection', (socket) => {
         const playerData = gamePlayers[userId];
         if (playerData) {
             const oldScene = playerData.currentSceneName; 
-            delete gamePlayers[userId];
+            delete gamePlayers[userId]; // 게스트든 유저든 메모리에서 삭제
 
             if (oldScene && !SINGLE_PLAYER_SCENES.includes(oldScene)) {
                 io.to(oldScene).emit('playerDisconnected', userId);
@@ -350,11 +438,12 @@ io.on('connection', (socket) => {
             console.log(`[Game] Player disconnected: ${userId} from scene ${oldScene}`);
         }
         
+        // --- Chat Logic ---
         const userInfo = onlineUsers.get(userId);
         if (userInfo) {
             userInfo.socketIds.delete(socket.id);
             if (userInfo.socketIds.size === 0) {
-                onlineUsers.delete(userId);
+                onlineUsers.delete(userId); // 게스트든 유저든 채팅 목록에서 삭제
                 io.emit('chat:system', `${userInfo.nickname}님이 퇴장했습니다.`);
                 const userList = Array.from(onlineUsers.entries()).map(([id, data]) => ({ userId: id, nickname: data.nickname }));
                 io.emit('presence:list', userList);
@@ -381,18 +470,66 @@ app.post('/auth/kakao', async (req, res) => {
 
         const [characters] = await connection.query(`SELECT character_id FROM characters WHERE user_id = ?`, [id]);
 
+        // ▼▼▼ [수정] 신규 캐릭터 생성 시 아이템 지급 로직 ▼▼▼
         if (characters.length === 0) {
            const sql = `
-    INSERT INTO characters 
-        (user_id, character_name, position_x, position_y, position_z, rotation_y) 
-    VALUES 
-        (?, ?, -15.76, 3.866, 49.78, 0)
-`;
-const [characterResult] = await connection.query(sql, [id, nickname]);
+                INSERT INTO characters 
+                    (user_id, character_name, position_x, position_y, position_z, rotation_y) 
+                VALUES 
+                    (?, ?, -15.76, 3.866, 49.78, 0)
+            `;
+            const [characterResult] = await connection.query(sql, [id, nickname]);
             const newCharacterId = characterResult.insertId;
+            
+            // 1. 기본 스탯 생성
             await connection.query(`INSERT INTO characterstats (character_id) VALUES (?)`, [newCharacterId]);
-            await connection.query(`INSERT INTO inventory (character_id, inventory_slot, item_id) VALUES (?, 1, 101)`, [newCharacterId]);
+
+            // 2. Equipment 아이템 지급 (ID: 101, 1개)
+            const item1Spec = JSON.stringify({ "damage": 5, "defense": 5 });
+            await connection.query(
+                `REPLACE INTO inventory (character_id, inventory_type, inventory_slot, item_id, quantity, item_spec)
+                 VALUES (?, 'Equipment', 0, 101, 1, ?)`,
+                [newCharacterId, item1Spec]
+            );
+            const item2Spec = JSON.stringify({ "damage": 5, "defense": 5 });
+            await connection.query(
+                `REPLACE INTO inventory (character_id, inventory_type, inventory_slot, item_id, quantity, item_spec)
+                 VALUES (?, 'Equipment', 1, 201, 1, ?)`,
+                [newCharacterId, item2Spec]
+            );
+            const item3Spec = JSON.stringify({ "damage": 5, "defense": 5 });
+            await connection.query(
+                `REPLACE INTO inventory (character_id, inventory_type, inventory_slot, item_id, quantity, item_spec)
+                 VALUES (?, 'Equipment', 2, 301, 1, ?)`,
+                [newCharacterId, item3Spec]
+            );
+            const item4Spec = JSON.stringify({ "damage": 5, "defense": 5 });
+            await connection.query(
+                `REPLACE INTO inventory (character_id, inventory_type, inventory_slot, item_id, quantity, item_spec)
+                 VALUES (?, 'Equipment', 3, 401, 1, ?)`,
+                [newCharacterId, item4Spec]
+            );
+            const item5Spec = JSON.stringify({ "damage": 5, "defense": 5 });
+            await connection.query(
+                `REPLACE INTO inventory (character_id, inventory_type, inventory_slot, item_id, quantity, item_spec)
+                 VALUES (?, 'Equipment', 4, 501, 1, ?)`,
+                [newCharacterId, item5Spec]
+            );
+            const item6Spec = JSON.stringify({ "damage": 5, "defense": 5 });
+            await connection.query(
+                `REPLACE INTO inventory (character_id, inventory_type, inventory_slot, item_id, quantity, item_spec)
+                 VALUES (?, 'Equipment', 5, 601, 1, ?)`,
+                [newCharacterId, item6Spec]
+            );
+
+            // 3. Consumption 아이템 지급 (ID: 1, 10개)
+            await connection.query(
+                `REPLACE INTO inventory (character_id, inventory_type, inventory_slot, item_id, quantity, item_spec)
+                 VALUES (?, 'Consumption', 0, 1, 10, NULL)`,
+                [newCharacterId]
+            );
         }
+        // ▲▲▲ [수정] ▲▲▲
 
         await connection.commit();
         res.send(characters.length === 0 ? '로그인 및 캐릭터/능력치/인벤토리 생성 완료' : '로그인 완료');
@@ -412,7 +549,13 @@ const [characterResult] = await connection.query(sql, [id, nickname]);
 
 // 게시글 등록
 app.post('/api/posts', async (req, res) => {
-    const { title, content, board_type, userId } = req.body;
+    const { userId } = req.body; 
+
+    if (String(userId).startsWith('guest_')) {
+        return res.status(200).json({ success: true, message: '게스트 활동은 저장되지 않습니다.' });
+    }
+
+    const { title, content, board_type } = req.body;
     if (!title || !content || !board_type || !userId) return res.status(400).json({ message: '필수 항목이 누락되었습니다.' });
     try {
         const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? ORDER BY created_at ASC LIMIT 1`, [userId]); 
@@ -553,7 +696,14 @@ app.get('/api/events/:id', async (req, res) => {
 
 // 게시글 좋아요
 app.post('/api/like', async (req, res) => {
-    const { user_id, post_id } = req.body;
+
+    const { user_id } = req.body;
+
+    if (String(user_id).startsWith('guest_')) {
+        return res.status(200).json({ success: true, message: '게스트 활동은 저장되지 않습니다.' });
+    }
+
+    const { post_id } = req.body;
     if (!user_id || !post_id) return res.status(400).json({ message: '필수 항목(user_id, post_id)이 누락되었습니다.' });
     let connection;
     try {
@@ -603,7 +753,13 @@ app.get('/api/comments', async (req, res) => {
 
 // 댓글 등록
 app.post('/api/comments', async (req, res) => {
-    const { post_id, userId, content } = req.body;
+    const { userId } = req.body;
+
+    if (String(userId).startsWith('guest_')) {
+        return res.status(200).json({ success: true, message: '게스트 활동은 저장되지 않습니다.' });
+    }
+
+    const { post_id, content } = req.body;
     if (!post_id || !userId || !content) return res.status(400).json({ message: '필수 항목이 누락되었습니다.' });
     let connection;
     try {
@@ -628,6 +784,11 @@ app.post('/api/comments', async (req, res) => {
 app.delete('/api/comments/:id', async (req, res) => {
     const commentId = req.params.id;
     const { userId } = req.query;
+
+    if (String(userId).startsWith('guest_')) {
+        return res.status(200).json({ success: true, message: '게스트 활동은 저장되지 않습니다.' });
+    }
+
     if (!userId) return res.status(401).json({ message: '로그인이 필요합니다.' });
     let connection;
     try {
@@ -705,6 +866,11 @@ app.get('/api/rankings', async (req, res) => {
 app.delete('/api/posts/:id', async (req, res) => {
     const postId = req.params.id;
     const { userId } = req.query;
+
+    if (String(userId).startsWith('guest_')) {
+        return res.status(200).json({ success: true, message: '게스트 활동은 저장되지 않습니다.' });
+    }
+
     if (!userId) return res.status(401).json({ message: '로그인이 필요합니다.' });
     try {
         const [posts] = await dbPool.query(`SELECT author_user_id FROM posts WHERE post_id = ? AND (is_deleted IS NULL OR is_deleted = false)`, [postId]); 
@@ -720,17 +886,35 @@ app.delete('/api/posts/:id', async (req, res) => {
 });
 
 // 인벤토리 조회
-// 인벤토리 조회
 app.get('/playerData/inventory/:userId', async (req, res) => { 
     const { userId } = req.params;
     console.log(`[inventory Check] 1. userId: ${userId}`);
+
+    // ▼▼▼ [게스트 가드 수정] ▼▼▼
+    if (String(userId).startsWith('guest_')) {
+        console.log(`[inventory Check] GUEST ${userId}. Reading inventory from memory.`);
+        
+        // 1. 서버 메모리에서 게스트 플레이어 정보를 찾습니다.
+        const playerData = gamePlayers[userId];
+        
+        if (playerData && playerData.inventory) {
+            // 2. 메모리에 저장된 인벤토리를 반환합니다.
+            return res.json({ inventory: playerData.inventory });
+        } else {
+            // 3. (비상시) 메모리에 없으면 빈 인벤토리를 반환합니다.
+            console.warn(`[inventory Check] GUEST ${userId} not found in memory. Sending empty array.`);
+            return res.json({ inventory: [] });
+        }
+    }
+    // ▲▲▲ [게스트 가드 수정] ▲▲▲
+
+    // --- (이하 실제 유저를 위한 기존 DB 조회 로직) ---
     try {
-        const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]); 
+        const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]);
         if (characters.length === 0) return res.status(404).json({ message: '캐릭터를 찾을 수 없습니다.' });
         const characterId = characters[0].character_id;
         console.log(`[inventory Check] 2. characterId: ${characterId}`);
 
-        // --- 여기부터 SQL 쿼리 수정 ---
         const invSql = `
           SELECT
             inv.inventory_slot AS slotIndex,
@@ -763,9 +947,8 @@ app.get('/playerData/inventory/:userId', async (req, res) => {
             AND inv.item_id != 0
           ORDER BY inv.inventory_type, inv.inventory_slot ASC
         `;
-        // --- 여기까지 SQL 쿼리 수정 ---
 
-        const [results] = await dbPool.query(invSql, [characterId]); 
+        const [results] = await dbPool.query(invSql, [characterId]);
         console.log(`[inventory Check] 3. ${results.length} items found.`);
 
         const inventory = results.map(item => ({
@@ -787,6 +970,84 @@ app.get('/playerData/inventory/:userId', async (req, res) => {
 // 인벤토리 저장 (최종 수정본)
 app.post('/playerData/inventory/:userId', async (req, res) => { 
     const { userId } = req.params;
+
+    // ▼▼▼ [게스트 가드 수정] ▼▼▼
+    if (String(userId).startsWith('guest_')) {
+        const playerData = gamePlayers[userId];
+        if (!playerData) {
+            return res.status(404).json({ success: false, message: 'Guest player not found in memory.' });
+        }
+        if (!playerData.inventory) {
+            playerData.inventory = []; // (비상시) 인벤토리 배열이 없으면 생성
+        }
+
+        const slotData = req.body;
+        const { slotType, slotIndex, itemId, itemCount, itemSpec, hasItem } = slotData;
+
+        if (typeof slotType === 'undefined' || typeof slotIndex === 'undefined') {
+            console.error('Guest Inventory POST error: slotType/slotIndex missing.', req.body);
+            return res.status(400).json({ success: false, message: 'Guest slot info missing.' });
+        }
+
+        // (기존 코드와 동일한 슬롯 타입 정규화 로직)
+        let normalizedSlotType;
+        const clientSlotType = slotData.slotType; 
+        const itemIdNum = parseInt(itemId, 10);
+        const typeMap = { 0: 'Equipment', 1: 'Consumption', 2: 'Other', 3: 'Profile', 4: 'Quick', 5: 'Equipment' };
+
+        // 'Profile'(장착칸)을 명시적으로 처리하도록 추가
+        if (clientSlotType === 'Equipment' || clientSlotType === 'Quick' || clientSlotType === 'Profile') {
+            normalizedSlotType = clientSlotType;
+        } 
+        else if (typeof clientSlotType === 'number' || /^[0-9]+$/.test(clientSlotType)) {
+            normalizedSlotType = typeMap[clientSlotType] ?? 'Other';
+        }
+        else {
+            if (clientSlotType) {
+                normalizedSlotType = clientSlotType; 
+            } else {
+                if (itemIdNum >= 1 && itemIdNum <= 9) { normalizedSlotType = 'Consumption'; }
+                else if ((itemIdNum >= 101 && itemIdNum <= 110) || (itemIdNum >= 201 && itemIdNum <= 210) || (itemIdNum >= 301 && itemIdNum <= 310)) { normalizedSlotType = 'Equipment'; }
+                else { normalizedSlotType = 'Other'; }
+            }
+        }
+        // (정규화 로직 끝)
+
+        // 메모리 상의 인벤토리에서 해당 아이템을 찾습니다.
+        const itemIndex = playerData.inventory.findIndex(
+            item => item.slotType === normalizedSlotType && item.slotIndex === slotIndex
+        );
+
+        if (hasItem !== false && itemId) {
+            // [저장/업데이트]
+            const newItemData = {
+                slotIndex: slotIndex,
+                slotType: normalizedSlotType,
+                itemId: itemId,
+                itemCount: itemCount,
+                itemSpec: itemSpec || {}
+            };
+            
+            if (itemIndex > -1) {
+                // 이미 있으면 덮어쓰기
+                playerData.inventory[itemIndex] = newItemData;
+            } else {
+                // 없으면 추가
+                playerData.inventory.push(newItemData);
+            }
+        } else {
+            // [삭제] (hasItem이 false인 경우)
+            if (itemIndex > -1) {
+                playerData.inventory.splice(itemIndex, 1);
+            }
+        }
+        
+        console.log(`[GUEST] Inventory for ${userId} updated in memory.`);
+        return res.status(200).json({ success: true, message: '게스트 활동이 임시 저장되었습니다.' });
+    }
+    // ▲▲▲ [게스트 가드 수정] ▲▲▲
+
+    // --- (이하 실제 유저를 위한 기존 DB 저장 로직) ---
     const slotData = req.body;
     const { slotType, slotIndex, itemId, itemCount, itemSpec, hasItem } = slotData;
 
@@ -795,42 +1056,32 @@ app.post('/playerData/inventory/:userId', async (req, res) => {
         return res.status(400).json({ success: false, message: '슬롯 정보(slotType, slotIndex)가 누락되었습니다.' });
     }
 
-    // [최종 수정 로직] slotType(숫자/문자)을 itemId보다 먼저 확인합니다.
     let normalizedSlotType;
-    
-    // ▼▼▼ /inventory API용 변수 설정 ▼▼▼
     const clientSlotType = slotData.slotType; 
     const itemIdNum = parseInt(itemId, 10);
-    // ▲▲▲ ▲▲▲ ▲▲▲
-
     const typeMap = { 0: 'Equipment', 1: 'Consumption', 2: 'Other', 3: 'Profile', 4: 'Quick', 5: 'Equipment' };
 
-    // 1. Client가 'Equipment' 또는 'Quick' 문자를 보낸 경우 (최우선)
-    if (clientSlotType === 'Equipment' || clientSlotType === 'Quick') {
+    if (clientSlotType === 'Equipment' || clientSlotType === 'Quick' || clientSlotType === 'Profile') { // 'Profile' 추가
         normalizedSlotType = clientSlotType;
     } 
-    // 2. Client가 숫자를 보낸 경우 (차선)
     else if (typeof clientSlotType === 'number' || /^[0-9]+$/.test(clientSlotType)) {
         normalizedSlotType = typeMap[clientSlotType] ?? 'Other';
     }
-    // 3. Client가 'Consumption', 'Other', '' 등을 보낸 경우 (itemId로 추측)
     else {
         if (clientSlotType) {
-            normalizedSlotType = clientSlotType; // 'Consumption', 'Other' 등은 신뢰
+            normalizedSlotType = clientSlotType; 
         } else {
-            // Client가 '' 또는 NULL을 보냈을 때만 itemId로 추측
-            if (itemIdNum >= 1 && itemIdNum <= 9) { // Potions
+            if (itemIdNum >= 1 && itemIdNum <= 9) { 
                 normalizedSlotType = 'Consumption';
-            } else if ((itemIdNum >= 101 && itemIdNum <= 110) || // Weapons
-                       (itemIdNum >= 201 && itemIdNum <= 210) || // Armor
-                       (itemIdNum >= 301 && itemIdNum <= 310)) { // Helmets
+            } else if ((itemIdNum >= 101 && itemIdNum <= 110) || 
+                       (itemIdNum >= 201 && itemIdNum <= 210) || 
+                       (itemIdNum >= 301 && itemIdNum <= 310)) { 
                 normalizedSlotType = 'Equipment';
             } else {
-                normalizedSlotType = 'Other'; // 그 외
+                normalizedSlotType = 'Other'; 
             }
         }
     }
-    // --- 로직 수정 끝 ---
 
     let connection;
     try {
@@ -855,7 +1106,6 @@ app.post('/playerData/inventory/:userId', async (req, res) => {
                 itemSpecJson
             ]);
         } else {
-            // 빈 슬롯이면 삭제
             await dbPool.query(
                `DELETE FROM inventory WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ?`,
                [characterId, normalizedSlotType, slotIndex]
@@ -870,19 +1120,55 @@ app.post('/playerData/inventory/:userId', async (req, res) => {
         if (connection) connection.release();
     }
 });
+
 // 거래소 API
-// 전체 판매 목록
+// 전체 판매 목록 (수정됨: 요청자의 아이템을 제외하고 보여주기)
 app.get('/market/items', async (req, res) => {
-    console.log("[GET] 전체 판매 목록 조회 요청");
-    const sql = `SELECT listing_id AS marketId, item_id AS ItemId, quantity AS ItemCount, price FROM marketlistings WHERE expires_at > NOW() ORDER BY listed_at DESC;`;
+    const { userId } = req.query; 
+    console.log(`[GET] 전체 판매 목록 조회 요청 (요청자: ${userId || 'None'})`);
+
+    let characterId = null;
+
+    if (userId) {
+        try {
+            const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]);
+            if (characters.length > 0) {
+                characterId = characters[0].character_id;
+            }
+        } catch (err) {
+            console.error(`[Market] character_id 조회 실패 (userId: ${userId}):`, err);
+        }
+    }
+
+    let sql;
+    const params = [];
+
+    if (characterId) {
+        console.log(`[Market] ${userId}(${characterId})의 아이템을 제외하고 목록 조회`);
+        sql = `SELECT listing_id AS marketId, item_id AS ItemId, quantity AS ItemCount, price 
+               FROM marketlistings 
+               WHERE expires_at > NOW() 
+               AND seller_character_id != ?  -- <-- 이 부분이 추가되었습니다
+               ORDER BY listed_at DESC;`;
+        params.push(characterId);
+    } 
+    else {
+        console.log(`[Market] 모든 아이템 목록 조회 (요청자 ID 없거나 찾을 수 없음)`);
+        sql = `SELECT listing_id AS marketId, item_id AS ItemId, quantity AS ItemCount, price 
+               FROM marketlistings 
+               WHERE expires_at > NOW() 
+               ORDER BY listed_at DESC;`;
+    }
+
     try {
-        const [results] = await dbPool.query(sql); 
+        const [results] = await dbPool.query(sql, params); 
         res.json(results);
     } catch (err) {
         console.error('Error fetching market items:', err);
         res.status(500).json({ message: 'DB 오류' });
     }
 });
+
 // 내 판매 목록
 app.get('/market/items/:userId', async (req, res) => {
     const { userId } = req.params;
@@ -902,45 +1188,55 @@ app.get('/market/items/:userId', async (req, res) => {
 
 // 아이템 판매 등록
 app.post('/market/items', async (req, res) => {
-    console.log("판매 요청 데이터:", req.body);
-    
     const { userId, ItemId, ItemData, itemSpec, itemCount, price, slotType, slotIndex } = req.body;
+
+    // 게스트인지 확인합니다.
+    if (String(userId).startsWith('guest_')) {
+        console.log(`[Market] GUEST ${userId}가 아이템 판매를 시뮬레이션했습니다.`);
+        
+        return res.status(200).json({ 
+            success: true, 
+            message: '아이템 등록 성공! (게스트)', 
+            marketId: 'guest_market_' + Date.now(), // 가짜 마켓 ID
+            ItemId: ItemId, 
+            slotType: slotType,
+            slotIndex: slotIndex,
+            ItemCount: parseInt(itemCount, 10), 
+            price: parseInt(price, 10) 
+        });
+    }
+
+    console.log("판매 요청 데이터:", req.body);
     
     if (typeof slotType === 'undefined' || typeof slotIndex === 'undefined') {
         console.error('Market POST error: slotType 또는 slotIndex가 없습니다.', req.body);
         return res.status(400).json({ success: false, message: '판매 아이템의 원본 슬롯 정보(slotType, slotIndex)가 누락되었습니다.' });
     }
 
-// ✅ [수정] 판매 시에는 ItemId를 기준으로 타입을 강제합니다. (클라이언트 slotType 버그 대응)
-let normalizedSlotType;
-const itemIdNum = parseInt(ItemId, 10);
+    let normalizedSlotType;
+    const itemIdNum = parseInt(ItemId, 10);
 
-// 1. ItemId로 타입을 알 수 있는 경우 (최우선)
-if (itemIdNum >= 1 && itemIdNum <= 9) { // Potions
-    normalizedSlotType = 'Consumption';
-} else if ((itemIdNum >= 101 && itemIdNum <= 110) || // Weapons
-           (itemIdNum >= 201 && itemIdNum <= 210) || // Armor
-           (itemIdNum >= 301 && itemIdNum <= 310)) { // Helmets
-    normalizedSlotType = 'Equipment';
-} 
-// 2. ItemId로 알 수 없는 아이템('Other' 등)은 클라이언트가 보낸 값을 신뢰합니다.
-//    (기존 퀵슬롯/장비슬롯 유지를 위한 save 로직을 그대로 사용)
-else {
-    const clientSlotType = slotType; // 원본 slotType
-    const typeMap = { 0: 'Equipment', 1: 'Consumption', 2: 'Other', 3: 'Profile', 4: 'Quick', 5: 'Equipment' };
-
-    if (clientSlotType === 'Equipment' || clientSlotType === 'Quick') {
-        normalizedSlotType = clientSlotType;
+    if (itemIdNum >= 1 && itemIdNum <= 9) { 
+        normalizedSlotType = 'Consumption';
+    } else if ((itemIdNum >= 101 && itemIdNum <= 110) || 
+               (itemIdNum >= 201 && itemIdNum <= 210) || 
+               (itemIdNum >= 301 && itemIdNum <= 310)) { 
+        normalizedSlotType = 'Equipment';
     } 
-    else if (typeof clientSlotType === 'number' || /^[0-9]+$/.test(clientSlotType)) {
-        normalizedSlotType = typeMap[clientSlotType] ?? 'Other';
-    }
     else {
-        // 'Consumption', 'Other' 등이 문자열로 올 경우
-        normalizedSlotType = clientSlotType || 'Other';
+        const clientSlotType = slotType; 
+        const typeMap = { 0: 'Equipment', 1: 'Consumption', 2: 'Other', 3: 'Profile', 4: 'Quick', 5: 'Equipment' };
+
+        if (clientSlotType === 'Equipment' || clientSlotType === 'Quick') {
+            normalizedSlotType = clientSlotType;
+        } 
+        else if (typeof clientSlotType === 'number' || /^[0-9]+$/.test(clientSlotType)) {
+            normalizedSlotType = typeMap[clientSlotType] ?? 'Other';
+        }
+        else {
+            normalizedSlotType = clientSlotType || 'Other';
+        }
     }
-}
-// --- 수정된 로직 끝 ---
 
     console.log(`[POST] ${userId} 판매 등록 요청 (Slot: ${slotType}/${slotIndex} -> ${normalizedSlotType})`);
     
@@ -958,41 +1254,38 @@ else {
         }
         const seller_character_id = characters[0].character_id;
         
-        // 1) 해당 슬롯의 수량을 잠궈서 읽기 (동시성 대비)
-const [invRows] = await connection.query(
-  `SELECT quantity FROM inventory
-   WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ? AND item_id = ?
-   FOR UPDATE`,
-  [seller_character_id, normalizedSlotType, slotIndex, ItemId]
-);
+        const [invRows] = await connection.query(
+          `SELECT quantity FROM inventory
+           WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ? AND item_id = ?
+           FOR UPDATE`,
+          [seller_character_id, normalizedSlotType, slotIndex, ItemId]
+        );
 
-if (invRows.length === 0) {
-  console.warn(`[Market] ${userId}가 존재하지 않는 인벤토리 아이템 판매 시도 (Slot: ${slotType}/${slotIndex}, Item: ${ItemId})`);
-  throw new Error('인벤토리에서 해당 아이템을 찾을 수 없습니다.');
-}
+        if (invRows.length === 0) {
+          console.warn(`[Market] ${userId}가 존재하지 않는 인벤토리 아이템 판매 시도 (Slot: ${slotType}/${slotIndex}, Item: ${ItemId})`);
+          throw new Error('인벤토리에서 해당 아이템을 찾을 수 없습니다.');
+        }
 
-const haveQty = Number(invRows[0].quantity ?? 0);
-const sellQty = Number(itemCount ?? 0);
-if (sellQty <= 0) throw new Error('판매 수량이 올바르지 않습니다.');
-if (haveQty < sellQty) throw new Error('판매 수량이 보유 수량을 초과합니다.');
+        const haveQty = Number(invRows[0].quantity ?? 0);
+        const sellQty = Number(itemCount ?? 0);
+        if (sellQty <= 0) throw new Error('판매 수량이 올바르지 않습니다.');
+        if (haveQty < sellQty) throw new Error('판매 수량이 보유 수량을 초과합니다.');
 
-// 2) 수량 차감(0보다 크면 UPDATE, 0이면 DELETE)
-const remain = haveQty - sellQty;
-if (remain > 0) {
-  await connection.query(
-    `UPDATE inventory
-     SET quantity = ?
-     WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ? AND item_id = ?`,
-    [remain, seller_character_id, normalizedSlotType, slotIndex, ItemId]
-  );
-} else {
-  await connection.query(
-    `DELETE FROM inventory
-     WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ? AND item_id = ?`,
-    [seller_character_id, normalizedSlotType, slotIndex, ItemId]
-  );
-}
-        // 마켓에 아이템 등록
+        const remain = haveQty - sellQty;
+        if (remain > 0) {
+          await connection.query(
+            `UPDATE inventory
+             SET quantity = ?
+             WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ? AND item_id = ?`,
+            [remain, seller_character_id, normalizedSlotType, slotIndex, ItemId]
+          );
+        } else {
+          await connection.query(
+            `DELETE FROM inventory
+             WHERE character_id = ? AND inventory_type = ? AND inventory_slot = ? AND item_id = ?`,
+            [seller_character_id, normalizedSlotType, slotIndex, ItemId]
+          );
+        }
         const addItemSql = 'INSERT INTO marketlistings (seller_character_id, item_id, quantity, price, item_spec, listed_at, expires_at) VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 DAY))';
         const [result] = await connection.query(addItemSql, [seller_character_id, ItemId, sellQty, price, itemSpecJson]);
         
@@ -1025,87 +1318,209 @@ if (remain > 0) {
 // 아이템 구매
 app.get('/market/buy', async (req, res) => {
     const { userId, marketId, count } = req.query;
+
+    const isGuest = String(userId).startsWith('guest_');
+    
     const purchaseCount = parseInt(count, 10);
-    console.log(`[GET] ${userId} 구매 요청 (marketId: ${marketId}, 수량: ${purchaseCount})`);
+    console.log(`[GET] ${userId} 구매 요청 (marketId: ${marketId}, 수량: ${purchaseCount}, Guest: ${isGuest})`);
+    
     let connection;
     try {
         connection = await dbPool.getConnection();
         await connection.beginTransaction();
-        const [characters] = await connection.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]);
-        if (characters.length === 0) throw new Error('구매자 캐릭터 없음');
-        const buyer_character_id = characters[0].character_id;
-        const [listings] = await connection.query('SELECT * FROM marketlistings WHERE listing_id = ? FOR UPDATE', [marketId]);
+
+        const [listings] = await connection.query(
+            `SELECT * FROM marketlistings WHERE listing_id = ? ${isGuest ? '' : 'FOR UPDATE'}`, 
+            [marketId]
+        );
+
         if (listings.length === 0) throw new Error('판매 물품 없음');
         const listing = listings[0];
         const { seller_character_id, item_id, quantity, price, item_spec } = listing;
+        
         if (quantity < purchaseCount) throw new Error('아이템 개수 부족');
+
+        if (isGuest) {
+            await connection.rollback(); // DB 변경 절대 금지! (롤백)
+            console.log(`[Market] GUEST ${userId} simulated purchase success.`);
+            
+            return res.json({ 
+                success: true, 
+                message: '아이템 구매 성공. (게스트)', 
+                marketId: parseInt(marketId), 
+                ItemId: item_id, 
+                spec: JSON.parse(item_spec || '{}'), 
+                purchasedItemCount: purchaseCount, 
+                remainingItemCount: quantity, // (실제로는 줄어들지 않음)
+                gold: 999999, // (가짜 골드 응답)
+                sellerGold: null 
+            });
+        }
+        // ▲▲▲ [게스트 가드 수정] ▲▲▲
+
+        const [characters] = await connection.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]);
+        if (characters.length === 0) throw new Error('구매자 캐릭터 없음');
+        const buyer_character_id = characters[0].character_id;
+        
         const totalPrice = price * purchaseCount;
         const [payResult] = await connection.query('UPDATE characters SET gold = gold - ? WHERE character_id = ? AND gold >= ?', [totalPrice, buyer_character_id, totalPrice]);
         if (payResult.affectedRows === 0) throw new Error('골드 부족');
+        
         await connection.query('UPDATE characters SET gold = gold + ? WHERE character_id = ?', [totalPrice, seller_character_id]);
         await connection.query('UPDATE marketlistings SET quantity = quantity - ? WHERE listing_id = ?', [purchaseCount, marketId]);
         await connection.query('DELETE FROM marketlistings WHERE listing_id = ? AND quantity <= 0', [marketId]);
         await connection.commit();
 
-        // 최종 골드 조회
         const [goldResults] = await dbPool.query(`SELECT character_id, gold FROM characters WHERE character_id IN (?, ?)`, [buyer_character_id, seller_character_id]);
         const buyerGold = goldResults.find(r => r.character_id === buyer_character_id)?.gold;
         const sellerGold = goldResults.find(r => r.character_id === seller_character_id)?.gold;
         const remainingItemCount = quantity - purchaseCount;
 
-res.json({ success: true, message: '아이템 구매 성공.', marketId: parseInt(marketId), ItemId: item_id, spec: JSON.parse(item_spec || '{}'), purchasedItemCount: purchaseCount, remainingItemCount: remainingItemCount, gold: buyerGold, sellerGold: sellerGold });
+        try {
+            const [sellerUsers] = await connection.query(
+                `SELECT user_id FROM characters WHERE character_id = ? LIMIT 1`,
+                [seller_character_id]
+            );
 
-    } catch (err) { // <--- 1. try 블록을 닫고 catch (err) 시작
-        // 2. 에러 처리 코드를 이 안으로 이동
+            if (sellerUsers.length > 0) {
+                const sellerUserId = sellerUsers[0].user_id;
+                const sellerInfo = onlineUsers.get(sellerUserId);
+                
+                if (sellerInfo && sellerInfo.socketIds.size > 0) {
+                    console.log(`[Market] 판매자(${sellerUserId})에게 골드(${sellerGold}) 업데이트 실시간 알림 전송`);
+                    sellerInfo.socketIds.forEach(socketId => {
+                        io.to(socketId).emit('updateGold', { gold: sellerGold });
+                    });
+                }
+            }
+        } catch (notifyError) {
+            console.error('[Market] 판매자 알림 전송 중 오류:', notifyError);
+        }
+
+        res.json({ success: true, message: '아이템 구매 성공.', marketId: parseInt(marketId), ItemId: item_id, spec: JSON.parse(item_spec || '{}'), purchasedItemCount: purchaseCount, remainingItemCount: remainingItemCount, gold: buyerGold, sellerGold: sellerGold });
+
+    } catch (err) { 
+        if (connection) await connection.rollback(); // 롤백 추가
         console.error('Market buy error:', err);
         res.status(err.message === '골드 부족' || err.message === '아이템 개수 부족' || err.message === '판매 물품 없음' || err.message === '구매자 캐릭터 없음' ? 400 : 500)
            .json({ success: false, message: err.message || '구매 처리 실패' });
-    } finally { // <--- 3. finally 블록은 그대로 둡니다.
+    } finally { 
         if (connection) connection.release();
     }
 });
+
 // 아이템 판매 취소
 app.delete('/market/items/:userId/:marketId', async (req, res) => { 
     const { userId, marketId } = req.params;
+    
+    const isGuest = String(userId).startsWith('guest_');
+    
     const listingId = Number(marketId);
     if (!Number.isInteger(listingId)) return res.status(400).json({ success: false, message: '잘못된 marketId 형식입니다.' });
+    
     try {
         const findSql = `SELECT ml.listing_id, ml.item_id, ml.quantity, ml.price, ml.item_spec, c.user_id FROM marketlistings ml JOIN characters c ON ml.seller_character_id = c.character_id WHERE ml.listing_id = ?`;
         const [rows] = await dbPool.query(findSql, [listingId]);
+        
         if (rows.length === 0) return res.status(404).json({ success: false, message: '해당 마켓 아이템을 찾을 수 없습니다.' });
+        
         const row = rows[0];
-        if (String(row.user_id) !== String(userId)) return res.status(403).json({ success: false, message: '아이템을 삭제할 권한이 없습니다.' });
+        
+        if (!isGuest && String(row.user_id) !== String(userId)) {
+            return res.status(403).json({ success: false, message: '아이템을 삭제할 권한이 없습니다.' });
+        }
+
+        // ▼▼▼ [게스트 가드 수정] ▼▼▼
+        if (isGuest) {
+            console.log(`[Market] GUEST ${userId} simulated cancel sale.`);
+            // 게스트는 DB에서 삭제하지 않고 성공 응답
+            return res.status(200).json({ 
+                success: true, 
+                message: '아이템 등록이 취소되었습니다. (게스트)', 
+                marketId: listingId, 
+                ItemId: row.item_id, 
+                ItemCount: row.quantity, 
+                price: row.price, 
+                spec: safeJSON(row.item_spec) 
+            });
+        }
+
         await dbPool.query('DELETE FROM marketlistings WHERE listing_id = ?', [listingId]); 
         return res.status(200).json({ success: true, message: '아이템 등록이 취소되었습니다.', marketId: listingId, ItemId: row.item_id, ItemCount: row.quantity, price: row.price, spec: safeJSON(row.item_spec) });
+    
     } catch (err) {
         console.error('Market item deletion error:', err);
         return res.status(500).json({ success: false, message: '삭제 실패' });
     }
 });
-
 // 플레이어 데이터 불러오기
 app.get('/playerData/:userId', async (req, res) => { 
     const { userId } = req.params;
     console.log(`[GET] ${userId} 플레이어 데이터 요청`);
+
+    // ▼▼▼ [게스트 가드 추가] ▼▼▼
+    if (String(userId).startsWith('guest_')) {
+        console.log(`[GET /playerData] GUEST ${userId}에게 기본 스탯 데이터를 전송합니다.`);
+        
+        // 게스트는 DB 조회를 건너뛰고,
+        // DB 테이블의 기본값(DEFAULT)을 기반으로 "기본 스탯"을 즉시 반환합니다.
+        const guestData = {
+            id: userId,
+            nickname: "Guest", 
+            currentHp: 100,    // characterstats.currentHp DEFAULT 100
+            maxHp: 100,        // characterstats.maxHp DEFAULT 100
+            level: 1,          // characters.level DEFAULT 1
+            exp: 0,            // characterstats.experience DEFAULT 0
+            speed: 5,          // characterstats.speed DEFAULT 5
+            defense: 5,        // characterstats.defense DEFAULT 5
+            damage: 10,        // characterstats.damage DEFAULT 10
+            dead: false,
+            gold: 500,         // characters.gold DEFAULT 500
+            position: { x: -15.76, y: 3.866, z: 49.78 }, // 기본 스폰 위치
+            rotation: { x: 0, y: 0, z: 0 }
+        };
+        
+        return res.json(guestData);
+    }
+    // ▲▲▲ [게스트 가드 추가] ▲▲▲
+
+    // --- (이하 실제 유저를 위한 기존 DB 조회 로직) ---
     const playerDataQuery = `SELECT u.user_id as id, u.nickname, c.level, c.gold, c.position_x, c.position_y, c.position_z, c.rotation_y, cs.currentHp, cs.maxHp, cs.experience AS exp, cs.speed, cs.defense, cs.damage FROM users u LEFT JOIN characters c ON u.user_id = c.user_id LEFT JOIN characterstats cs ON c.character_id = cs.character_id WHERE u.user_id = ? LIMIT 1;`;
     try {
         const [results] = await dbPool.query(playerDataQuery, [userId]); 
         if (results.length === 0) return res.status(404).send('플레이어 정보를 찾을 수 없습니다.');
         const data = results[0];
-        const response = { id: data.id, nickname: data.nickname, currentHp: data.currentHp, maxHp: data.maxHp, level: data.level, exp: data.exp, speed: data.speed, defense: data.defense, damage: data.damage, dead: false, gold: data.gold, position: { 
-    x: data.position_x || -15.76, 
-    y: data.position_y || 3.866, 
-    z: data.position_z || 49.78 
-}, rotation: { x: 0, y: data.rotation_y, z: 0 } };
+        const response = { 
+            id: data.id, 
+            nickname: data.nickname, 
+            currentHp: data.currentHp, 
+            maxHp: data.maxHp, 
+            level: data.level, 
+            exp: data.exp, 
+            speed: data.speed, 
+            defense: data.defense, 
+            damage: data.damage, 
+            dead: false, 
+            gold: data.gold, 
+            position: { 
+                x: data.position_x || -15.76, 
+                y: data.position_y || 3.866, 
+                z: data.position_z || 49.78 
+            }, 
+            rotation: { x: 0, y: data.rotation_y, z: 0 } 
+        };
         res.json(response);
     } catch (err) {
         console.error('DB 오류:', err);
         return res.status(500).send('서버 오류');
     }
 });
-
 app.post('/playerData/:userId', async (req, res) => {
   const { userId } = req.params;
+  if (String(userId).startsWith('guest_')) {
+      console.log(`[POST /playerData] GUEST ${userId} data save skipped.`);
+      return res.status(200).json({ success: true, message: '게스트 활동은 저장되지 않습니다.' });
+  }
   const incoming = req.body || {};
   console.log(`[POST /playerData] User ${userId} sent data:\n`, JSON.stringify(incoming, null, 2));
 
@@ -1184,11 +1599,63 @@ app.get('/dialogue', (req, res) => {
     console.log('[GET] 퀘스트 대화 데이터 요청');
     res.status(200).json(dialogueData);
 });
+// 퀘스트 API (퀘스트 목록 불러오기)
 app.get('/quest/:userId', async (req, res) => {
     const { userId } = req.params;
     
     console.log(`[GET /quest] ${userId}의 퀘스트 데이터 요청함.`);
 
+    // ▼▼▼ [게스트 가드 최종 수정] ▼▼▼
+    if (String(userId).startsWith('guest_')) {
+        console.log(`[GET /quest] GUEST ${userId}에게 '시작 가능' 퀘스트 목록을 전송합니다. (모든 MissionProgress 키 포함)`);
+        
+        const defaultQuestStatuses = questData.map(quest => {
+            
+            // 1. 퀘스트 전체에서 사용할 하나의 MissionProgress 객체를 생성합니다.
+            const defaultProgress = {};
+
+            // 2. 퀘스트의 "모든" 단계를 순회합니다.
+            if (quest.steps) {
+                quest.steps.forEach(step => {
+                    // 3. "모든" 단계의 "모든" 미션을 순회합니다.
+                    if (step.missions) {
+                        step.missions.forEach((mission, index) => {
+                            
+                            // 4. 미션 유형에 따라 다른 Key를 사용합니다.
+                            if (mission.type === "Kill") {
+                                // "Kill" 미션은 targetId를 Key로 사용합니다. (예: "100")
+                                defaultProgress[mission.targetId] = 0;
+                            } else {
+                                // "TalkTo" 등 그 외 미션은 Index를 Key로 사용합니다. (예: "0")
+                                defaultProgress[index] = 0;
+                            }
+                        });
+                    }
+                });
+            }
+
+            // 5. 최종 생성된 객체 (예: {"0": 0, "100": 0})
+            console.log(`[GUEST] Quest ${quest.questID} MissionProgress 생성:`, defaultProgress);
+
+            return {
+                questId: quest.questID,
+                state: 0,               // 0 = NotStarted
+                currentStepIndex: 0,
+                IsFocused: false,
+                MissionProgress: defaultProgress // <--- 모든 Key가 포함된 객체
+            };
+        });
+
+        const responseData = {
+            questData: questData,                 // 퀘스트 정의 (questData.json)
+            questStatuses: defaultQuestStatuses   // 게스트용 기본 퀘스트 목록
+        };
+        
+        return res.status(200).json(responseData);
+    }
+    // ▲▲▲ [게스트 가드 최종 수정] ▲▲▲
+
+    // --- (이하 실제 유저를 위한 기존 DB 조회 로직) ---
     try {
         const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]);
         
@@ -1199,42 +1666,34 @@ app.get('/quest/:userId', async (req, res) => {
         
         const characterId = characters[0].character_id;
 
-        // 해당 캐릭터의 퀘스트 진행도 조회
         const getProgressSql = `SELECT quest_id AS questId, current_progress_data FROM questprogress WHERE character_id = ?`;
         const [results] = await dbPool.query(getProgressSql, [characterId]);
 
-        // DB 결과를 JSON 객체 배열로 파싱
         const questStatuses = results.map(row => {
             let progressData = {};
             try { 
                 if (row.current_progress_data) {
-                    progressData = JSON.parse(row.current_progress_data); 
+                    progressData = JSON.parse(row.current_progress_data);
                 }
             } catch (e) { 
                 console.error(`[GET /quest] JSON 파싱 오류 (characterId: ${characterId}, questId: ${row.questId}):`, row.current_progress_data); 
             }
             
-            // 최종 매핑
             return { 
                 questId: row.questId, 
                 state: progressData.state || 0,
                 currentStepIndex: progressData.step || 0,
-                IsFocused: progressData.IsFocused || false,       // IsFocused 추가 (기본값 false)
-                MissionProgress: progressData.MissionProgress || {} // MissionProgress 추가 (기본값 빈 객체)
+                IsFocused: progressData.IsFocused || false,       
+                MissionProgress: progressData.MissionProgress || {} // <--- 실제 유저는 DB의 이 값을 사용
             };
         });
 
-        // 클라이언트에게 보낼 최종 데이터 객체 생성
         const responseData = {
-            questData: questData,       // 서버 시작 시 로드한 전체 퀘스트 목록
-            questStatuses: questStatuses  // DB에서 가져온 이 유저의 진행도
+            questData: questData,       
+            questStatuses: questStatuses  
         };
 
-        // 전송 직전의 데이터 출력
-        console.log(`[GET /quest] ${userId}에게 다음 데이터를 전송합니다:`);
-        console.log(JSON.stringify(responseData, null, 2));
-        console.log('------------------------------------');
-
+        console.log(`[GET /quest] ${userId}에게 DB 진행도 데이터를 전송합니다.`);
         res.status(200).json(responseData);
 
     } catch (err) {
@@ -1245,6 +1704,9 @@ app.get('/quest/:userId', async (req, res) => {
 
 app.post('/quest/:userId', async (req, res) => { 
     const { userId } = req.params;
+    if (String(userId).startsWith('guest_')) {
+        return res.status(200).json({ success: true, message: '게스트 활동은 저장되지 않습니다.' });
+    }
     const questStatus = req.body || {};
     console.log(`[POST] ${userId} 퀘스트 진행도 저장 요청`, questStatus);
     if (typeof questStatus.questId === 'undefined') return res.status(200).json({ message: '유효하지 않은 퀘스트 데이터 (무시됨)' });

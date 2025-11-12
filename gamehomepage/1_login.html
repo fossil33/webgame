@@ -10,6 +10,14 @@
 </head>
 <body>
     <img class="wave" src="https://raw.githubusercontent.com/sefyudem/Responsive-Login-Form/master/img/wave.png">
+    <div id="guest-modal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center;">
+    <div style="background: white; padding: 30px; border-radius: 10px; text-align: center; width: 320px;">
+        <h3 style="margin-bottom: 20px; color: #333;">게스트 닉네임 입력</h3>
+        <input type="text" id="guest-nickname" placeholder="닉네임을 입력하세요" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #d9d9d9; border-radius: 5px; font-size: 1rem;">
+        <button class="btn" style="width: 100%; margin: 0 0 10px 0;" onclick="startAsGuest()">게임 시작</button>
+        <a href="#" onclick="hideGuestModal(); return false;" style="text-align: center; font-size: 0.9rem;">취소</a>
+    </div>
+</div>
     <div class="container">
         <div class="img">
             <img src="https://raw.githubusercontent.com/sefyudem/Responsive-Login-Form/master/img/bg.svg">
@@ -19,6 +27,7 @@
                 <img src="https://raw.githubusercontent.com/sefyudem/Responsive-Login-Form/master/img/avatar.svg">
                 <h2 class="title">Welcome</h2>
                 <input type="button" class="btn" value="Login with Kakao" onclick="loginWithKakao()">
+                <input type="button" class="btn" value="Guest Login" onclick="showGuestModal()">
             </form>
         </div>
     </div>
@@ -85,6 +94,50 @@
                 }
             });
         }
+
+       const guestModal = document.getElementById('guest-modal');
+    const guestNicknameInput = document.getElementById('guest-nickname');
+
+    // 모달 보이기
+    function showGuestModal() {
+        guestModal.style.display = 'flex';
+        guestNicknameInput.focus();
+    }
+
+    // 모달 숨기기
+    function hideGuestModal() {
+        guestModal.style.display = 'none';
+    }
+
+    // 게스트로 게임 시작
+    function startAsGuest() {
+        const nickname = guestNicknameInput.value.trim();
+
+        if (nickname.length < 2) {
+            alert("닉네임은 2자 이상 입력해야 합니다.");
+            return;
+        }
+
+        // 1. 임시 게스트 ID 생성 (예: guest_1678886400000)
+        const guestId = 'guest_' + Date.now();
+
+        // 2. localStorage에 게스트 정보 저장
+        // (참고: 4_main.html이 'kakaoNickname' 키를 사용하므로 동일하게 맞춰줍니다)
+        localStorage.setItem('userId', guestId);
+        localStorage.setItem('kakaoNickname', nickname);
+        localStorage.setItem('isGuest', 'true'); // 게스트임을 명시!
+
+        // 3. 메인 페이지로 이동
+        window.location.href = '4_main.html';
+    }
+
+    // Enter 키로도 로그인 시도
+    guestNicknameInput.addEventListener('keyup', function(event) {
+        if (event.key === 'Enter') {
+            startAsGuest();
+        }
+    });
+    // ▲▲▲ [게스트 로그인용 JS 추가] ▲▲▲ 
     </script>
 </body>
 </html>
