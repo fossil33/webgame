@@ -1160,19 +1160,14 @@ app.get('/market/items/:userId', async (req, res) => {
 app.post('/market/items', async (req, res) => {
     const { userId, ItemId, ItemData, itemSpec, itemCount, price, slotType, slotIndex } = req.body;
 
-    // 게스트인지 확인합니다.
+    // 게스트인지 확인하고 차단합니다.
     if (String(userId).startsWith('guest_')) {
-        console.log(`[Market] GUEST ${userId}가 아이템 판매를 시뮬레이션했습니다.`);
+        console.log(`[Market] GUEST ${userId}가 아이템 판매를 시도했습니다. (Blocked)`);
         
-        return res.status(200).json({ 
-            success: true, 
-            message: '아이템 등록 성공! (게스트)', 
-            marketId: 'guest_market_' + Date.now(), // 가짜 마켓 ID
-            ItemId: ItemId, 
-            slotType: slotType,
-            slotIndex: slotIndex,
-            ItemCount: parseInt(itemCount, 10), 
-            price: parseInt(price, 10) 
+        // 게스트는 "권한 없음" 오류를 반환합니다.
+        return res.status(403).json({ 
+            success: false, 
+            message: '게스트는 아이템을 판매할 수 없습니다.'
         });
     }
 
@@ -1186,15 +1181,15 @@ app.post('/market/items', async (req, res) => {
     let normalizedSlotType;
     const itemIdNum = parseInt(ItemId, 10);
 
-    if (itemIdNum >= 1 && itemIdNum <= 9) { 
+    if (itemIdNum >= 1 && itemIdNum <= 9) {
         normalizedSlotType = 'Consumption';
-    } else if ((itemIdNum >= 101 && itemIdNum <= 110) || 
+    } else if ((itemIdNum >= 101 && itemIdNum <= 110) ||
                (itemIdNum >= 201 && itemIdNum <= 210) || 
                (itemIdNum >= 301 && itemIdNum <= 310)) { 
         normalizedSlotType = 'Equipment';
     } 
     else {
-        const clientSlotType = slotType; 
+        const clientSlotType = slotType;
         const typeMap = { 0: 'Equipment', 1: 'Consumption', 2: 'Other', 3: 'Profile', 4: 'Quick', 5: 'Equipment' };
 
         if (clientSlotType === 'Equipment' || clientSlotType === 'Quick') {
@@ -1210,13 +1205,13 @@ app.post('/market/items', async (req, res) => {
 
     console.log(`[POST] ${userId} 판매 등록 요청 (Slot: ${slotType}/${slotIndex} -> ${normalizedSlotType})`);
     
-    const specObjectToSave = ItemData || itemSpec || {}; 
-    const itemSpecJson = JSON.stringify(specObjectToSave); 
+    const specObjectToSave = ItemData || itemSpec || {};
+    const itemSpecJson = JSON.stringify(specObjectToSave);
 
-    let connection; 
+    let connection;
     try {
         connection = await dbPool.getConnection();
-        await connection.beginTransaction(); 
+        await connection.beginTransaction();
 
         const [characters] = await connection.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]);
         if (characters.length === 0) {
@@ -1259,9 +1254,9 @@ app.post('/market/items', async (req, res) => {
         const addItemSql = 'INSERT INTO marketlistings (seller_character_id, item_id, quantity, price, item_spec, listed_at, expires_at) VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 DAY))';
         const [result] = await connection.query(addItemSql, [seller_character_id, ItemId, sellQty, price, itemSpecJson]);
         
-        await connection.commit(); 
+        await connection.commit();
 
-        res.status(200).json({ 
+        res.status(200).json({
             success: true, 
             message: '아이템 등록 성공!', 
             marketId: result.insertId, 
@@ -1273,16 +1268,16 @@ app.post('/market/items', async (req, res) => {
         });
 
     } catch (err) {
-        if (connection) await connection.rollback(); 
+        if (connection) await connection.rollback();
         console.error("거래소 등록 실패:", err);
         
-        const clientMessage = (err.message === '인벤토리에서 해당 아이템을 찾을 수 없습니다.') 
+        const clientMessage = (err.message === '인벤토리에서 해당 아이템을 찾을 수 없습니다.')
             ? '존재하지 않는 아이템' 
             : '거래소 등록 실패';
 
         res.status(500).json({ success: false, message: clientMessage });
     } finally {
-        if (connection) connection.release(); 
+        if (connection) connection.release();
     }
 });
 
@@ -1312,19 +1307,13 @@ app.get('/market/buy', async (req, res) => {
         if (quantity < purchaseCount) throw new Error('아이템 개수 부족');
 
         if (isGuest) {
-            await connection.rollback(); 
-            console.log(`[Market] GUEST ${userId} simulated purchase success.`);
+            await connection.rollback();
+            console.log(`[Market] GUEST ${userId}가 아이템 구매를 시도했습니다. (Blocked)`);
             
-            return res.json({ 
-                success: true, 
-                message: '아이템 구매 성공. (게스트)', 
-                marketId: parseInt(marketId), 
-                ItemId: item_id, 
-                spec: JSON.parse(item_spec || '{}'), 
-                purchasedItemCount: purchaseCount, 
-                remainingItemCount: quantity, 
-                gold: 999999,
-                sellerGold: null 
+            // 게스트는 "권한 없음" 오류를 반환합니다.
+            return res.status(403).json({ 
+                success: false, 
+                message: '게스트는 아이템을 구매할 수 없습니다.'
             });
         }
         
@@ -1371,7 +1360,7 @@ app.get('/market/buy', async (req, res) => {
         res.json({ success: true, message: '아이템 구매 성공.', marketId: parseInt(marketId), ItemId: item_id, spec: JSON.parse(item_spec || '{}'), purchasedItemCount: purchaseCount, remainingItemCount: remainingItemCount, gold: buyerGold, sellerGold: sellerGold });
 
     } catch (err) { 
-        if (connection) await connection.rollback(); 
+        if (connection) await connection.rollback();
         console.error('Market buy error:', err);
         res.status(err.message === '골드 부족' || err.message === '아이템 개수 부족' || err.message === '판매 물품 없음' || err.message === '구매자 캐릭터 없음' ? 400 : 500)
            .json({ success: false, message: err.message || '구매 처리 실패' });
@@ -1390,6 +1379,15 @@ app.delete('/market/items/:userId/:marketId', async (req, res) => {
     if (!Number.isInteger(listingId)) return res.status(400).json({ success: false, message: '잘못된 marketId 형식입니다.' });
     
     try {
+        if (isGuest) {
+            console.log(`[Market] GUEST ${userId}가 판매 취소를 시도했습니다. (Blocked)`);
+            // 게스트는 "권한 없음" 오류를 반환합니다.
+            return res.status(403).json({ 
+                success: false, 
+                message: '게스트는 판매를 취소할 수 없습니다.'
+            });
+        }
+
         const findSql = `SELECT ml.listing_id, ml.item_id, ml.quantity, ml.price, ml.item_spec, c.user_id FROM marketlistings ml JOIN characters c ON ml.seller_character_id = c.character_id WHERE ml.listing_id = ?`;
         const [rows] = await dbPool.query(findSql, [listingId]);
         
@@ -1397,25 +1395,11 @@ app.delete('/market/items/:userId/:marketId', async (req, res) => {
         
         const row = rows[0];
         
-        if (!isGuest && String(row.user_id) !== String(userId)) {
+        if (String(row.user_id) !== String(userId)) {
             return res.status(403).json({ success: false, message: '아이템을 삭제할 권한이 없습니다.' });
         }
 
-        
-        if (isGuest) {
-            console.log(`[Market] GUEST ${userId} simulated cancel sale.`);
-            return res.status(200).json({ 
-                success: true, 
-                message: '아이템 등록이 취소되었습니다. (게스트)', 
-                marketId: listingId, 
-                ItemId: row.item_id, 
-                ItemCount: row.quantity, 
-                price: row.price, 
-                spec: safeJSON(row.item_spec) 
-            });
-        }
-
-        await dbPool.query('DELETE FROM marketlistings WHERE listing_id = ?', [listingId]); 
+        await dbPool.query('DELETE FROM marketlistings WHERE listing_id = ?', [listingId]);
         return res.status(200).json({ success: true, message: '아이템 등록이 취소되었습니다.', marketId: listingId, ItemId: row.item_id, ItemCount: row.quantity, price: row.price, spec: safeJSON(row.item_spec) });
     
     } catch (err) {
