@@ -9,7 +9,7 @@ const fs = require('fs');
 const app = express();
 const server = http.createServer(app);
 
-const PORT = 8080;
+const PORT = 3000;
 
 require('dotenv').config();
 
@@ -134,13 +134,13 @@ socket.on('initialize', async (data) => {
         isGuest = data.isGuest === true;
     } else {
         console.error(`[Game] Invalid initialize data from socket ${socket.id}:`, data);
-        return; 
+        return;
     }
     
     isGuest = isGuest || String(userId).startsWith('guest_');
 
     console.log(`[Game] Initializing player: ${userId} (Guest: ${isGuest}) for socket ${socket.id}`);
-    socketIdToUserId.set(socket.id, userId); 
+    socketIdToUserId.set(socket.id, userId);
 
     if (isGuest) {
         const existingPlayer = gamePlayers[userId];
@@ -150,11 +150,11 @@ socket.on('initialize', async (data) => {
             
             socket.emit('initializeComplete', existingPlayer);
         } else {
-            console.log(`[Game] GUEST ${nickname} (${userId}) 최초 초기화.`); // 'nickname'은 현재 'Guest'일 수 있음
+            console.log(`[Game] GUEST ${nickname} (${userId}) 최초 초기화.`);
             
             const chatUserInfo = onlineUsers.get(userId);
             if (chatUserInfo && chatUserInfo.nickname) {
-                nickname = chatUserInfo.nickname; // 'Guest'를 실제 닉네임으로 덮어씁니다.
+                nickname = chatUserInfo.nickname;
                 console.log(`[Game] GUEST nickname updated to '${nickname}' from chat session.`);
             }
             
@@ -172,19 +172,26 @@ socket.on('initialize', async (data) => {
                     itemId: 1,
                     itemCount: 10,
                     itemSpec: { "hp": 10 }
+                },
+                {
+                    slotIndex: 2,
+                    slotType: 'Equipment',
+                    itemId: 301,
+                    itemCount: 1,
+                    itemSpec: { "damage": 5, "defense": 5 }
                 }
             ];
 
             const playerData = { 
-                id: userId, 
+                id: userId,
                 nickname: nickname,
-                position: { x: -15.76, y: 3.866, z: 49.78 }, 
+                position: { x: -15.76, y: 3.866, z: 49.78 },
                 rotation: { x: 0, y: 0, z: 0 },
-                currentSceneName: 'Main', 
+                currentSceneName: 'Main',
                 inventory: defaultInventory
             };
-            gamePlayers[userId] = playerData; 
-            socket.emit('initializeComplete', playerData); 
+            gamePlayers[userId] = playerData;
+            socket.emit('initializeComplete', playerData);
         }
 
     } else {
@@ -193,39 +200,39 @@ socket.on('initialize', async (data) => {
                      LEFT JOIN users u ON c.user_id = u.user_id 
                      WHERE c.user_id = ?`;
         try {
-            const [results] = await dbPool.query(sql, [userId]); 
+            const [results] = await dbPool.query(sql, [userId]);
             let playerData;
             if (results.length === 0) {
                 console.log(`[Game] DB에서 ${userId}의 위치 정보를 찾지 못해 기본값으로 설정합니다.`);
                 playerData = { 
-                    id: userId, 
-                    nickname: nickname, 
-                    position: { x: -15.76, y: 3.866, z: 49.78 }, 
+                    id: userId,
+                    nickname: nickname,
+                    position: { x: -15.76, y: 3.866, z: 49.78 },
                     rotation: { x: 0, y: 0, z: 0 },
-                    currentSceneName: 'Main' 
+                    currentSceneName: 'Main'
                 };
             } else {
                 const dbData = results[0];
                 playerData = { 
-                    id: userId, 
+                    id: userId,
                     nickname: dbData.nickname || dbData.character_name,
                     position: { 
-                        x: dbData.position_x || -15.76, 
-                        y: dbData.position_y || 3.866, 
-                        z: dbData.position_z || 49.78 
+                        x: dbData.position_x || -15.76,
+                        y: dbData.position_y || 3.866,
+                        z: dbData.position_z || 49.78
                     }, 
                     rotation: { x: 0, y: dbData.rotation_y || 0, z: 0 },
-                    currentSceneName: dbData.current_scene_name || 'Main' 
+                    currentSceneName: dbData.current_scene_name || 'Main'
                 };
             }
-            gamePlayers[userId] = playerData; 
-            socket.emit('initializeComplete', playerData); 
+            gamePlayers[userId] = playerData;
+            socket.emit('initializeComplete', playerData);
         } catch (err) {
             console.error('[Game] Initialize DB error:', err);
             const playerData = { 
-                id: userId, 
+                id: userId,
                 nickname: 'ErrorPlayer',
-                position: { x: -15.76, y: 3.866, z: 49.78 }, 
+                position: { x: -15.76, y: 3.866, z: 49.78 },
                 rotation: { x: 0, y: 0, z: 0 },
                 currentSceneName: 'Main'
             };
@@ -442,7 +449,7 @@ socket.on('initialize', async (data) => {
 // /auth/kakao API
 app.post('/auth/kakao', async (req, res) => {
     const { id, nickname, email, profile_image } = req.body;
-    let connection; 
+    let connection;
     try {
         connection = await dbPool.getConnection();
         await connection.beginTransaction();
@@ -459,13 +466,13 @@ app.post('/auth/kakao', async (req, res) => {
                 VALUES 
                     (?, ?, -15.76, 3.866, 49.78, 0)
             `;
-            const [characterResult] = await connection.query(sql, [id, nickname]);
-            const newCharacterId = characterResult.insertId;
             
-            // 1. 기본 스탯 생성
+            const [characterResult] = await connection.query(sql, [id, id]);
+
+            const newCharacterId = characterResult.insertId;
+
             await connection.query(`INSERT INTO characterstats (character_id) VALUES (?)`, [newCharacterId]);
 
-            // 2. Equipment 아이템 지급 (ID: 101, 1개)
             const item1Spec = JSON.stringify({ "damage": 5, "defense": 5 });
             await connection.query(
                 `REPLACE INTO inventory (character_id, inventory_type, inventory_slot, item_id, quantity, item_spec)
@@ -496,14 +503,7 @@ app.post('/auth/kakao', async (req, res) => {
                  VALUES (?, 'Equipment', 4, 501, 1, ?)`,
                 [newCharacterId, item5Spec]
             );
-            const item6Spec = JSON.stringify({ "damage": 5, "defense": 5 });
-            await connection.query(
-                `REPLACE INTO inventory (character_id, inventory_type, inventory_slot, item_id, quantity, item_spec)
-                 VALUES (?, 'Equipment', 5, 601, 1, ?)`,
-                [newCharacterId, item6Spec]
-            );
-
-            // 3. Consumption 아이템 지급 (ID: 1, 10개)
+            // 포션 지급
             await connection.query(
                 `REPLACE INTO inventory (character_id, inventory_type, inventory_slot, item_id, quantity, item_spec)
                  VALUES (?, 'Consumption', 0, 1, 10, NULL)`,
@@ -516,12 +516,9 @@ app.post('/auth/kakao', async (req, res) => {
 
     } catch (err) {
         if (connection) await connection.rollback();
-        if (err.code === 'ER_DUP_ENTRY' && err.message.includes('character_name')) {
-             res.status(409).send('캐릭터 이름이 이미 사용 중입니다.');
-        } else {
-             console.error('Auth/Kakao Error:', err);
-             res.status(500).send('서버 오류');
-        }
+        console.error('Auth/Kakao Error:', err);
+        res.status(500).send('서버 오류');
+        
     } finally {
         if (connection) connection.release();
     }
