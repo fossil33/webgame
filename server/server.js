@@ -1100,9 +1100,9 @@ app.get('/market/items', async (req, res) => {
             ml.item_id AS ItemId, 
             ml.quantity AS ItemCount, 
             ml.price,
-            c.user_id AS userId  -- <-- [수정] 판매자의 'userId'를 포함시킵니다.
+            c.user_id AS userId
         FROM marketlistings ml
-        LEFT JOIN characters c ON ml.seller_character_id = c.character_id -- <-- [수정] JOIN 추가
+        LEFT JOIN characters c ON ml.seller_character_id = c.character_id
         WHERE ml.expires_at > NOW() 
         ORDER BY ml.listed_at DESC;
     `;
@@ -1309,8 +1309,13 @@ app.get('/market/buy', async (req, res) => {
         await connection.commit();
 
         const [goldResults] = await dbPool.query(`SELECT character_id, gold FROM characters WHERE character_id IN (?, ?)`, [buyer_character_id, seller_character_id]);
-        const buyerGold = goldResults.find(r => r.character_id === buyer_character_id)?.gold;
-        const sellerGold = goldResults.find(r => r.character_id === seller_character_id)?.gold;
+        
+        const buyerGoldRaw = goldResults.find(r => r.character_id === buyer_character_id)?.gold;
+        const sellerGoldRaw = goldResults.find(r => r.character_id === seller_character_id)?.gold;
+
+        const buyerGold = parseInt(buyerGoldRaw, 10);
+        const sellerGold = parseInt(sellerGoldRaw, 10);
+
         const remainingItemCount = quantity - purchaseCount;
 
         try {
@@ -1326,8 +1331,8 @@ app.get('/market/buy', async (req, res) => {
                 if (sellerInfo && sellerInfo.socketIds.size > 0) {
                     console.log(`[Market] 판매자(${sellerUserId})에게 골드(${sellerGold}) 업데이트 실시간 알림 전송`);
                     sellerInfo.socketIds.forEach(socketId => {
-
-                        io.to(socketId).emit('updateGold', { gold: sellerGold, Gold: sellerGold });
+  
+                        io.to(socketId).emit('updateGold', { gold: sellerGold });
                         
                     });
                 }
