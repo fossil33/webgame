@@ -1090,25 +1090,51 @@ app.post('/playerData/inventory/:userId', async (req, res) => {
 
 // 거래소 API
 
-// 전체 판매 목록 
+// 전체 판매 목록
 app.get('/market/items', async (req, res) => {
-    console.log(`[GET] 전체 판매 목록 조회 요청 (클라이언트 필터링 방식)`);
+    const { userId } = req.query; 
+    console.log(`[GET] 전체 판매 목록 조회 요청 (요청자: ${userId || 'None'})`);
 
-    const sql = `
-        SELECT 
-            ml.listing_id AS marketId, 
-            ml.item_id AS ItemId, 
-            ml.quantity AS ItemCount, 
-            ml.price,
-            c.user_id AS userId  -- <-- [수정] 판매자의 'userId'를 포함시킵니다.
-        FROM marketlistings ml
-        LEFT JOIN characters c ON ml.seller_character_id = c.character_id -- <-- [수정] JOIN 추가
-        WHERE ml.expires_at > NOW() 
-        ORDER BY ml.listed_at DESC;
-    `;
-    
+    let characterId = null;
+
+    if (userId) {
+        try {
+            const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]);
+            if (characters.length > 0) {
+                characterId = characters[0].character_id;
+            }
+        } catch (err) {
+            console.error(`[Market] character_id 조회 실패 (userId: ${userId}):`, err);
+        }
+    }
+
+    let sql;
+    const params = [];
+    if (characterId) {
+        console.log(`[Market] ${userId}(${characterId})의 아이템을 제외하고 목록 조회`);
+        sql = `SELECT 
+                 ml.listing_id AS marketId, ml.item_id AS ItemId, ml.quantity AS ItemCount, ml.price,
+                 c.user_id AS userId 
+               FROM marketlistings ml
+               LEFT JOIN characters c ON ml.seller_character_id = c.character_id
+               WHERE ml.expires_at > NOW() 
+               AND ml.seller_character_id != ?
+               ORDER BY ml.listed_at DESC;`;
+        params.push(characterId);
+    } 
+    else {
+        console.log(`[Market] 모든 아이템 목록 조회 (요청자 ID 없거나 찾을 수 없음)`);
+        sql = `SELECT 
+                 ml.listing_id AS marketId, ml.item_id AS ItemId, ml.quantity AS ItemCount, ml.price,
+                 c.user_id AS userId
+               FROM marketlistings ml
+               LEFT JOIN characters c ON ml.seller_character_id = c.character_id
+               WHERE ml.expires_at > NOW() 
+               ORDER BY ml.listed_at DESC;`;
+    }
+
     try {
-        const [results] = await dbPool.query(sql);
+        const [results] = await dbPool.query(sql, params); 
         res.json(results);
     } catch (err) {
         console.error('Error fetching market items:', err);
