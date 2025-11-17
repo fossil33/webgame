@@ -1089,46 +1089,26 @@ app.post('/playerData/inventory/:userId', async (req, res) => {
 });
 
 // 거래소 API
-// 전체 판매 목록 (수정됨: 요청자의 아이템을 제외하고 보여주기)
+
+// 전체 판매 목록 
 app.get('/market/items', async (req, res) => {
-    const { userId } = req.query; 
-    console.log(`[GET] 전체 판매 목록 조회 요청 (요청자: ${userId || 'None'})`);
+    console.log(`[GET] 전체 판매 목록 조회 요청 (클라이언트 필터링 방식)`);
 
-    let characterId = null;
-
-    if (userId) {
-        try {
-            const [characters] = await dbPool.query(`SELECT character_id FROM characters WHERE user_id = ? LIMIT 1`, [userId]);
-            if (characters.length > 0) {
-                characterId = characters[0].character_id;
-            }
-        } catch (err) {
-            console.error(`[Market] character_id 조회 실패 (userId: ${userId}):`, err);
-        }
-    }
-
-    let sql;
-    const params = [];
-
-    if (characterId) {
-        console.log(`[Market] ${userId}(${characterId})의 아이템을 제외하고 목록 조회`);
-        sql = `SELECT listing_id AS marketId, item_id AS ItemId, quantity AS ItemCount, price 
-               FROM marketlistings 
-               WHERE expires_at > NOW() 
-               AND seller_character_id != ?
-               ORDER BY listed_at DESC;`;
-        params.push(characterId);
-    } 
-    else {
-        console.log(`[Market] 모든 아이템 목록 조회 (요청자 ID 없거나 찾을 수 없음)`);
-        sql = `SELECT listing_id AS marketId, item_id AS ItemId, quantity AS ItemCount, price 
-               FROM marketlistings 
-               WHERE expires_at > NOW() 
-               ORDER BY listed_at DESC;`;
-    }
-
+    const sql = `
+        SELECT 
+            ml.listing_id AS marketId, 
+            ml.item_id AS ItemId, 
+            ml.quantity AS ItemCount, 
+            ml.price,
+            c.user_id AS userId  -- <-- [수정] 판매자의 'userId'를 포함시킵니다.
+        FROM marketlistings ml
+        LEFT JOIN characters c ON ml.seller_character_id = c.character_id -- <-- [수정] JOIN 추가
+        WHERE ml.expires_at > NOW() 
+        ORDER BY ml.listed_at DESC;
+    `;
+    
     try {
-        const [results] = await dbPool.query(sql, params); 
+        const [results] = await dbPool.query(sql);
         res.json(results);
     } catch (err) {
         console.error('Error fetching market items:', err);
@@ -1346,7 +1326,9 @@ app.get('/market/buy', async (req, res) => {
                 if (sellerInfo && sellerInfo.socketIds.size > 0) {
                     console.log(`[Market] 판매자(${sellerUserId})에게 골드(${sellerGold}) 업데이트 실시간 알림 전송`);
                     sellerInfo.socketIds.forEach(socketId => {
-                        io.to(socketId).emit('updateGold', { gold: sellerGold });
+
+                        io.to(socketId).emit('updateGold', { gold: sellerGold, Gold: sellerGold });
+                        
                     });
                 }
             }
